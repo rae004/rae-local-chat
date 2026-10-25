@@ -20,3 +20,6 @@ frontend/src/routeTree.gen.ts.tmp
 .idea/
 .vscode/
 .DS_Store
+
+# pnpm store that the dev container drops into the bind mount
+frontend/.pnpm-store/
