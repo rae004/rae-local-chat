@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 
-import { api } from '../api/client'
+import { api, type StreamOptions } from '../api/client'
 import { Composer } from '../components/Composer'
 import { chatsKey } from '../hooks/useChats'
 import { pendingPrompt } from '../lib/pendingPrompt'
@@ -18,12 +18,12 @@ function NewChat() {
   const [busy, setBusy] = useState(false)
 
   // Create the chat, stash the prompt, and let ChatWindow open the stream.
-  const start = async (content: string, model: string | null) => {
+  const start = async (content: string, options: StreamOptions) => {
     setBusy(true)
     setError(null)
     try {
       const chat = await api.createChat()
-      pendingPrompt.set(chat.id, { content, model })
+      pendingPrompt.set(chat.id, { content, ...options })
       void qc.invalidateQueries({ queryKey: chatsKey })
       await navigate({ to: '/chats/$chatId', params: { chatId: chat.id } })
     } catch (e) {
