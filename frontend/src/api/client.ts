@@ -1,0 +1,33 @@
+import type { Chat, Message, SendMessageResponse } from './types'
+
+export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+export class ApiError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
+  })
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+  return res.json() as Promise<T>
+}
+
+export const api = {
+  listChats: () => request<Chat[]>('/chats'),
+  createChat: (title?: string) =>
+    request<Chat>('/chats', { method: 'POST', body: JSON.stringify(title ? { title } : {}) }),
+  listMessages: (chatId: string) => request<Message[]>(`/chats/${chatId}/messages`),
+  sendMessage: (chatId: string, content: string) =>
+    request<SendMessageResponse>(`/chats/${chatId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+}

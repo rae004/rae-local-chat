@@ -1,0 +1,19 @@
+[project]
+name = "rae-db"
+version = "0.0.0"
+description = "Data layer: SQLAlchemy models, async session, Alembic migrations"
+requires-python = ">=3.14"
+dependencies = [
+    "alembic>=1.20.1",
+    "asyncpg>=0.32.0",
+    "pydantic-settings>=2.16.1",
+    "sqlalchemy[asyncio]>=2.1.6",
+]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "rae_db"
+module-root = "src"
