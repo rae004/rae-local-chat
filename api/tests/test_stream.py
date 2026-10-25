@@ -110,3 +110,34 @@ async def test_stream_rejects_empty(client: AsyncClient, fake_ollama: FakeOllama
     chat_id = await _new_chat(client)
     r = await client.post(f"/chats/{chat_id}/stream", json={"content": ""})
     assert r.status_code == 422
+
+
+async def test_first_message_sets_title_and_bumps_updated_at(
+    client: AsyncClient, fake_ollama: FakeOllama
+) -> None:
+    older = await _new_chat(client)
+    newer = await _new_chat(client)
+    assert [c["id"] for c in (await client.get("/chats")).json()] == [newer, older]
+
+    before = (await client.get("/chats")).json()[1]["updated_at"]
+    await client.post(f"/chats/{older}/stream", json={"content": "How do I  write\na sonnet?"})
+
+    chats = (await client.get("/chats")).json()
+    assert [c["id"] for c in chats] == [older, newer]  # activity moved it to the top
+    assert chats[0]["title"] == "How do I write"
+    assert chats[0]["updated_at"] > before
+
+    # Second message leaves the title alone.
+    await client.post(f"/chats/{older}/stream", json={"content": "Make it shorter"})
+    assert (await client.get("/chats")).json()[0]["title"] == "How do I write"
+
+
+def test_title_from_prompt_truncates_at_word_boundary() -> None:
+    from rae_api.routers.stream import title_from_prompt
+
+    assert title_from_prompt("short") == "short"
+    long = "word " * 30
+    t = title_from_prompt(long)
+    assert t.endswith("…") and len(t) <= 61 and not t[:-1].endswith(" ")
+    assert title_from_prompt("x" * 100) == "x" * 60 + "…"
+    assert title_from_prompt("   ") == "New chat"

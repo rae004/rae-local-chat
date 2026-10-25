@@ -10,6 +10,10 @@ class ChatCreate(BaseModel):
     title: str = Field(default="New chat", max_length=200)
 
 
+class ChatUpdate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+
+
 class ChatRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

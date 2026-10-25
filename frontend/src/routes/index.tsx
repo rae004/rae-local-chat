@@ -35,8 +35,8 @@ function NewChat() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
-        <h1 className="text-3xl font-bold">rae-local-chat</h1>
-        <p className="opacity-60">Start a conversation below.</p>
+        <h1 className="text-3xl font-bold">Rae Bot</h1>
+        <p className="opacity-60">Your local model, your machine. Start a conversation below.</p>
         {error ? (
           <div role="alert" className="alert alert-error mt-4">
             {error}

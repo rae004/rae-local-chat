@@ -1,10 +1,10 @@
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import select
 
 from rae_api.deps import SessionDep
-from rae_api.schemas.chat import ChatCreate, ChatRead, MessageRead
+from rae_api.schemas.chat import ChatCreate, ChatRead, ChatUpdate, MessageRead
 from rae_db import Chat, Message
 
 router = APIRouter(prefix="/chats", tags=["chats"])
@@ -39,3 +39,20 @@ async def list_messages(chat_id: uuid.UUID, session: SessionDep) -> list[Message
         select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)
     )
     return list(result)
+
+
+@router.patch("/{chat_id}", response_model=ChatRead)
+async def update_chat(chat_id: uuid.UUID, payload: ChatUpdate, session: SessionDep) -> Chat:
+    chat = await _get_chat_or_404(session, chat_id)
+    chat.title = payload.title.strip()
+    await session.commit()
+    await session.refresh(chat)
+    return chat
+
+
+@router.delete("/{chat_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_chat(chat_id: uuid.UUID, session: SessionDep) -> Response:
+    chat = await _get_chat_or_404(session, chat_id)
+    await session.delete(chat)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
