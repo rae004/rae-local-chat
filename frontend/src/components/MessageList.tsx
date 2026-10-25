@@ -1,16 +1,24 @@
 import { useEffect, useRef } from 'react'
 
-import type { Message } from '../api/types'
+import type { Message, ToolResult } from '../api/types'
 import { Markdown } from './Markdown'
+import { ToolCallCard } from './ToolCallCard'
 
 interface Props {
   messages: Message[]
   /** In-flight assistant text; rendered as a trailing bubble while streaming. */
   partial?: string
   isStreaming?: boolean
+  /** Tool results already streamed for this turn but not yet persisted. */
+  toolResults?: Record<string, ToolResult>
 }
 
-export function MessageList({ messages, partial = '', isStreaming = false }: Props) {
+export function MessageList({
+  messages,
+  partial = '',
+  isStreaming = false,
+  toolResults = {},
+}: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' })
@@ -23,13 +31,47 @@ export function MessageList({ messages, partial = '', isStreaming = false }: Pro
       </div>
     )
   }
+
+  // Tool rows fold into the card of the call they answer.
+  const results = new Map<string, ToolResult>(Object.entries(toolResults))
+  for (const m of messages) {
+    if (m.role === 'tool' && m.tool_call_id) {
+      results.set(m.tool_call_id, {
+        id: m.tool_call_id,
+        name: m.tool_name ?? '',
+        content: m.content,
+        is_error: Boolean(m.tool_is_error),
+      })
+    }
+  }
+
   return (
     <div className="flex-1 space-y-2 overflow-y-auto p-4">
-      {messages.map((m) => (
-        <Bubble key={m.id} role={m.role} header={m.model ? `${m.role} · ${m.model}` : m.role}>
-          {m.role === 'assistant' ? <Markdown>{m.content}</Markdown> : m.content}
-        </Bubble>
-      ))}
+      {messages.map((m) => {
+        if (m.role === 'tool') return null
+        const header = m.model ? `${m.role} · ${m.model}` : m.role
+        return (
+          <div key={m.id}>
+            {m.content || !m.tool_calls?.length ? (
+              <Bubble role={m.role} header={header}>
+                {m.role === 'assistant' ? <Markdown>{m.content}</Markdown> : m.content}
+              </Bubble>
+            ) : null}
+            {m.tool_calls?.length ? (
+              <div className="ml-2 max-w-prose">
+                {m.tool_calls.map((c) => (
+                  <ToolCallCard
+                    key={c.id}
+                    call={c}
+                    result={results.get(c.id) ?? null}
+                    running={isStreaming}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
+        )
+      })}
       {isStreaming ? (
         <Bubble role="assistant" header="assistant">
           <Markdown>{partial}</Markdown>

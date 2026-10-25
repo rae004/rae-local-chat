@@ -19,7 +19,7 @@ export function ChatWindow({ chatId }: Props) {
   const { send } = stream
   useEffect(() => {
     const first = pendingPrompt.take(chatId)
-    if (first) void send(first.content, first.model)
+    if (first) void send(first.content, { model: first.model, tools: first.tools })
   }, [chatId, send])
 
   return (
@@ -37,6 +37,7 @@ export function ChatWindow({ chatId }: Props) {
           messages={messages.data}
           partial={stream.partial}
           isStreaming={stream.isStreaming}
+          toolResults={stream.toolResults}
         />
       )}
       {stream.error ? (

@@ -1,4 +1,4 @@
-import type { Chat, Message, ModelInfo } from './types'
+import type { Chat, Message, ModelInfo, ToolsInfo } from './types'
 
 export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -20,6 +20,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+export interface StreamOptions {
+  model: string | null
+  /** Offer MCP tools to the model for this turn. */
+  tools: boolean
+}
+
 export const api = {
   listChats: () => request<Chat[]>('/chats'),
   createChat: (title?: string) =>
@@ -32,18 +38,19 @@ export const api = {
   },
   listMessages: (chatId: string) => request<Message[]>(`/chats/${chatId}/messages`),
   listModels: () => request<ModelInfo[]>('/models'),
+  listTools: () => request<ToolsInfo>('/tools'),
 
   /** Opens the SSE stream; the caller consumes `res.body` with `parseSSE`. */
   streamMessage: async (
     chatId: string,
     content: string,
-    model: string | null,
+    { model, tools }: StreamOptions,
     signal: AbortSignal,
   ): Promise<ReadableStream<Uint8Array>> => {
     const res = await fetch(`${API_URL}/chats/${chatId}/stream`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-      body: JSON.stringify({ content, model }),
+      body: JSON.stringify({ content, model, tools }),
       signal,
     })
     if (!res.ok) throw new ApiError(res.status, await res.text())

@@ -1,10 +1,11 @@
+import type { StreamOptions } from '../api/client'
+
 /**
  * Hands the first prompt from the "new chat" landing page to the chat route
  * without putting it in the URL. Set before navigating, consumed once on mount.
  */
-export interface PendingPrompt {
+export interface PendingPrompt extends StreamOptions {
   content: string
-  model: string | null
 }
 
 const pending = new Map<string, PendingPrompt>()
