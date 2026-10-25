@@ -32,6 +32,10 @@ updates:
         patterns: ["@tanstack/*"]
       testing:
         patterns: ["vitest", "@vitest/*", "@testing-library/*", "jsdom"]
+    ignore:
+      # @types/node tracks the Node runtime major, which is pinned to 24 LTS.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   # Base images in the Dockerfiles.
   - package-ecosystem: "docker"
@@ -45,6 +49,12 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+    ignore:
+      # Runtime majors are locked decisions (CLAUDE.md): Node 24 LTS, Python 3.14.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   # Pin + bump GitHub Actions used in workflows.
   - package-ecosystem: "github-actions"
