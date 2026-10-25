@@ -15,8 +15,3 @@ export interface Message {
   model: string | null
   created_at: string
 }
-
-export interface SendMessageResponse {
-  user: Message
-  assistant: Message
-}

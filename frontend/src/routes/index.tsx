@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { api } from '../api/client'
 import { PromptBox } from '../components/PromptBox'
 import { chatsKey } from '../hooks/useChats'
-import { messagesKey } from '../hooks/useMessages'
+import { pendingPrompt } from '../lib/pendingPrompt'
 
 export const Route = createFileRoute('/')({
   component: NewChat,
@@ -17,13 +17,13 @@ function NewChat() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  // Create the chat, stash the prompt, and let ChatWindow open the stream.
   const start = async (content: string) => {
     setBusy(true)
     setError(null)
     try {
       const chat = await api.createChat()
-      const { user, assistant } = await api.sendMessage(chat.id, content)
-      qc.setQueryData(messagesKey(chat.id), [user, assistant])
+      pendingPrompt.set(chat.id, content)
       void qc.invalidateQueries({ queryKey: chatsKey })
       await navigate({ to: '/chats/$chatId', params: { chatId: chat.id } })
     } catch (e) {

@@ -32,8 +32,3 @@ class MessageRead(BaseModel):
     content: str
     model: str | None
     created_at: datetime
-
-
-class SendMessageResponse(BaseModel):
-    user: MessageRead
-    assistant: MessageRead

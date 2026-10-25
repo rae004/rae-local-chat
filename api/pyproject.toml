@@ -4,7 +4,9 @@ version = "0.0.0"
 description = "FastAPI backend: chat CRUD + Ollama SSE proxy"
 requires-python = ">=3.14"
 dependencies = [
+    "anyio>=4.15.1",
     "fastapi>=0.162.0",
+    "httpx>=0.28.1",
     "pydantic-settings>=2.16.1",
     "rae-db",
     "uvicorn[standard]>=0.54.0",
