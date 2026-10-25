@@ -1,4 +1,4 @@
-# rae-local-chat
+# rae-local-chat — "Rae Bot"
 
 Classic AI chat UI (sidebar of chats, streaming main pane, model selector) over a
 local Ollama server. React/Vite SPA + FastAPI + Postgres, all in docker compose.
