@@ -1,0 +1,35 @@
+[project]
+name = "rae-local-chat"
+version = "0.0.0"
+description = "Workspace root — see api/ and db/"
+requires-python = ">=3.14"
+
+[tool.uv.workspace]
+members = ["api", "db"]
+
+[tool.uv.sources]
+rae-db = { workspace = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["api/src", "db/src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = ["api/src", "db/src"]
+
+[dependency-groups]
+dev = [
+    "asyncpg-stubs>=0.32.0",
+    "httpx>=0.28.1",
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.17.2",
+]

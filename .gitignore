@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/src/routeTree.gen.ts.tmp
+
+# Env / local
+.env
+*.local
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

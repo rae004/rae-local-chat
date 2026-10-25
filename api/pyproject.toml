@@ -1,0 +1,19 @@
+[project]
+name = "rae-api"
+version = "0.0.0"
+description = "FastAPI backend: chat CRUD + Ollama SSE proxy"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.162.0",
+    "pydantic-settings>=2.16.1",
+    "rae-db",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "rae_api"
+module-root = "src"

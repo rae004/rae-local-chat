@@ -1,0 +1,19 @@
+{
+  "name": "rae-local-chat",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Local AI chat UI over Ollama — React/Vite SPA + FastAPI + Postgres",
+  "packageManager": "pnpm@11.3.0",
+  "engines": {
+    "node": ">=24.22.1"
+  },
+  "scripts": {
+    "dev": "docker compose up --build",
+    "down": "docker compose down",
+    "migrate": "docker compose exec api uv run alembic -c db/alembic.ini upgrade head",
+    "migration": "docker compose exec api uv run alembic -c db/alembic.ini revision --autogenerate -m",
+    "lint": "uv run ruff check . && uv run ruff format --check . && pnpm -C frontend lint",
+    "typecheck": "uv run mypy api/src db/src && pnpm -C frontend typecheck",
+    "test": "uv run --package rae-api pytest api/tests && pnpm -C frontend test"
+  }
+}
