@@ -5,7 +5,7 @@ import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from rae_api.routers import chats, stream
+from rae_api.routers import chats, models, stream
 from rae_api.settings import get_settings
 
 
@@ -29,6 +29,7 @@ app.add_middleware(
 
 app.include_router(chats.router)
 app.include_router(stream.router)
+app.include_router(models.router)
 
 
 @app.get("/health")

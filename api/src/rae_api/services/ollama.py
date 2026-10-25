@@ -19,9 +19,36 @@ class ChatChunk:
     model: str
 
 
+@dataclass(frozen=True, slots=True)
+class ModelInfo:
+    name: str
+    size: int
+    parameter_size: str | None
+    family: str | None
+
+
 class OllamaClient:
     def __init__(self, http: httpx.AsyncClient) -> None:
         self._http = http
+
+    async def list_models(self) -> list[ModelInfo]:
+        """Models available on the server (`/api/tags`), name-sorted."""
+        try:
+            resp = await self._http.get("/api/tags")
+        except httpx.HTTPError as e:
+            raise OllamaError(f"Ollama unreachable: {e}") from e
+        if resp.status_code >= 400:
+            raise OllamaError(_error_text(resp.content, resp.status_code))
+        models = [
+            ModelInfo(
+                name=str(m["name"]),
+                size=int(m.get("size", 0)),
+                parameter_size=(m.get("details") or {}).get("parameter_size"),
+                family=(m.get("details") or {}).get("family"),
+            )
+            for m in resp.json().get("models", [])
+        ]
+        return sorted(models, key=lambda m: m.name)
 
     async def chat_stream(
         self, model: str, messages: list[dict[str, str]]
