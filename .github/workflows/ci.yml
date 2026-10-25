@@ -1,9 +1,16 @@
 name: CI
 
 on:
+  pull_request:
   push:
     branches: [main]
-  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   python:
@@ -24,17 +31,36 @@ jobs:
     env:
       DATABASE_URL: postgresql+asyncpg://chat:chat@localhost:5433/chat
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        # Pinned to a commit SHA per CodeQL supply-chain hardening.
+        # Dependabot bumps the SHA weekly; update the trailing version tag
+        # in lockstep when it opens a PR.
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           enable-cache: true
-      - run: uv sync --frozen --all-packages
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy api/src db/src api/tests
-      - run: uv run alembic -c db/alembic.ini upgrade head
-      - run: uv run alembic -c db/alembic.ini check
-      - run: uv run --package rae-api pytest api/tests
+
+      - name: Install deps
+        run: uv sync --locked --all-packages
+
+      - name: Lint (ruff check)
+        run: uv run ruff check .
+
+      - name: Format (ruff format --check)
+        run: uv run ruff format --check .
+
+      - name: Typecheck (mypy)
+        run: uv run mypy api/src db/src api/tests
+
+      - name: Migrate
+        run: uv run alembic -c db/alembic.ini upgrade head
+
+      - name: Migrations match models
+        run: uv run alembic -c db/alembic.ini check
+
+      - name: Tests
+        run: uv run --package rae-api pytest api/tests -q
 
   node:
     runs-on: ubuntu-latest
@@ -42,17 +68,31 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           package_json_file: frontend/package.json
-      - uses: actions/setup-node@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.22.1
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (oxlint)
+        run: pnpm lint
+
+      - name: Typecheck (tsc)
+        run: pnpm typecheck
+
+      - name: Tests (vitest)
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build

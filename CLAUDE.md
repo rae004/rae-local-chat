@@ -36,6 +36,10 @@ is dev.
 - Node: **pnpm** via corepack. Lockfile committed.
 - Branch per milestone (`milestone-a-scaffold`), small commits, PR to `main`, human reviews
   every diff. CI (ruff, mypy, pytest, oxlint, tsc, vitest) must be green.
+- **Squash-merge with a Conventional Commits PR title** (`feat:`, `fix:`, `chore:`, …).
+  release-please reads the squash commit's subject to cut releases and write CHANGELOG.md;
+  a non-conforming title silently skips the release. CI lints the title. One version for the
+  whole app: release-please bumps root + `api/` + `db/` pyprojects and both package.jsons.
 - **Never stack PRs.** Every PR targets `main`; the next milestone branch is cut only after
   the previous PR is merged. Delete the branch after merge. (A stacked PR once merged into
   its feature branch instead of `main`.)

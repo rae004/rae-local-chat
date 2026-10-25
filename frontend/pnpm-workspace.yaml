@@ -1,0 +1,8 @@
+# Settings only — this is not a multi-package workspace.
+#
+# Keep pnpm's content-addressable store inside node_modules. In the dev
+# container, node_modules is its own volume on a different filesystem from the
+# bind-mounted source tree; without this pnpm falls back to <project>/.pnpm-store,
+# which lands root-owned in the host checkout. (pnpm 11 only reads this setting
+# from here — not from .npmrc, the global rc, or npm_config_* env vars.)
+storeDir: node_modules/.pnpm-store
