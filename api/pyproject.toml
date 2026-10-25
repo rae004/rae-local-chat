@@ -11,9 +11,14 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["uv_build"]
+requires = ["uv_build>=0.11,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-name = "rae_api"
 module-root = "src"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"

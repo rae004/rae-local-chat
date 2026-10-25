@@ -14,7 +14,7 @@ local Ollama server. React/Vite SPA + FastAPI + Postgres, all in docker compose.
 
 ```sh
 cp .env.example .env         # edit WORKHORSE_IP if needed
-pnpm dev                     # api :8000, frontend :5173, postgres :5432
+pnpm dev                     # api :8000, frontend :5173, postgres :5433
 ```
 
 The api container runs `alembic upgrade head` on start.
