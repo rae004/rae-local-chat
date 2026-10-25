@@ -1,5 +1,8 @@
+import { useEffect } from 'react'
+
+import { useChatStream } from '../hooks/useChatStream'
 import { useMessages } from '../hooks/useMessages'
-import { useSendMessage } from '../hooks/useSendMessage'
+import { pendingPrompt } from '../lib/pendingPrompt'
 import { MessageList } from './MessageList'
 import { PromptBox } from './PromptBox'
 
@@ -9,7 +12,13 @@ interface Props {
 
 export function ChatWindow({ chatId }: Props) {
   const messages = useMessages(chatId)
-  const send = useSendMessage(chatId)
+  const stream = useChatStream(chatId)
+
+  // First prompt handed over from the "new chat" landing page.
+  useEffect(() => {
+    const first = pendingPrompt.take(chatId)
+    if (first) void stream.send(first)
+  }, [chatId])
 
   return (
     <div className="flex h-full flex-col">
@@ -22,14 +31,27 @@ export function ChatWindow({ chatId }: Props) {
           Failed to load messages: {messages.error.message}
         </div>
       ) : (
-        <MessageList messages={messages.data} />
+        <MessageList
+          messages={messages.data}
+          partial={stream.partial}
+          isStreaming={stream.isStreaming}
+        />
       )}
-      {send.isError ? (
+      {stream.error ? (
         <div role="alert" className="alert alert-error mx-4">
-          Send failed: {send.error.message}
+          {stream.error}
         </div>
       ) : null}
-      <PromptBox onSubmit={(c) => send.mutateAsync(c)} disabled={send.isPending} autoFocus />
+      <div className="flex items-end">
+        <div className="flex-1">
+          <PromptBox onSubmit={stream.send} disabled={stream.isStreaming} autoFocus />
+        </div>
+        {stream.isStreaming ? (
+          <button type="button" className="btn btn-outline mr-4 mb-4" onClick={stream.stop}>
+            Stop
+          </button>
+        ) : null}
+      </div>
     </div>
   )
 }

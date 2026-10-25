@@ -1,4 +1,4 @@
-import type { Chat, Message, SendMessageResponse } from './types'
+import type { Chat, Message } from './types'
 
 export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -25,9 +25,21 @@ export const api = {
   createChat: (title?: string) =>
     request<Chat>('/chats', { method: 'POST', body: JSON.stringify(title ? { title } : {}) }),
   listMessages: (chatId: string) => request<Message[]>(`/chats/${chatId}/messages`),
-  sendMessage: (chatId: string, content: string) =>
-    request<SendMessageResponse>(`/chats/${chatId}/messages`, {
+
+  /** Opens the SSE stream; the caller consumes `res.body` with `parseSSE`. */
+  streamMessage: async (
+    chatId: string,
+    content: string,
+    signal: AbortSignal,
+  ): Promise<ReadableStream<Uint8Array>> => {
+    const res = await fetch(`${API_URL}/chats/${chatId}/stream`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
       body: JSON.stringify({ content }),
-    }),
+      signal,
+    })
+    if (!res.ok) throw new ApiError(res.status, await res.text())
+    if (!res.body) throw new ApiError(res.status, 'Empty response body')
+    return res.body
+  },
 }
