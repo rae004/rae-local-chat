@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/rae004/rae-local-chat/compare/v0.1.0...v0.1.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **frontend:** truncate long chat titles in the sidebar ([#13](https://github.com/rae004/rae-local-chat/issues/13)) ([f6127e4](https://github.com/rae004/rae-local-chat/commit/f6127e43fb517d2136b3a8988b888b44fd15ad87))
+
 ## 0.1.0 (2026-10-25)
 
 

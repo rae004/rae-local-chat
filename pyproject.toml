@@ -1,6 +1,6 @@
 [project]
 name = "rae-local-chat"
-version = "0.1.0"
+version = "0.1.1"
 description = "Workspace root — see api/ and db/"
 requires-python = ">=3.14"
 

@@ -1,6 +1,6 @@
 [project]
 name = "rae-db"
-version = "0.1.0"
+version = "0.1.1"
 description = "Data layer: SQLAlchemy models, async session, Alembic migrations"
 requires-python = ">=3.14"
 dependencies = [
