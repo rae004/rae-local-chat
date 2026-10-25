@@ -1,6 +1,6 @@
 [project]
 name = "rae-api"
-version = "0.1.0"
+version = "0.1.1"
 description = "FastAPI backend: chat CRUD + Ollama SSE proxy"
 requires-python = ">=3.14"
 dependencies = [
