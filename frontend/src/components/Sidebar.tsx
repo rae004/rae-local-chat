@@ -9,7 +9,7 @@ export function Sidebar() {
   const chats = useChats()
 
   return (
-    <aside className="flex h-full w-72 flex-col border-r border-base-300 bg-base-200">
+    <aside className="flex h-full w-72 shrink-0 flex-col overflow-hidden border-r border-base-300 bg-base-200">
       <div className="p-3">
         <Link to="/" className="btn btn-primary btn-block">
           + New chat
@@ -84,14 +84,14 @@ function ChatRow({ chat }: { chat: Chat }) {
         params={{ chatId: chat.id }}
         className="flex items-center gap-2 pr-1"
         activeProps={{ className: 'menu-active' }}
-        title="Double-click to rename"
+        title={`${chat.title} (double-click to rename)`}
         onDoubleClick={(e) => {
           e.preventDefault()
           setDraft(chat.title)
           setEditing(true)
         }}
       >
-        <span className="flex-1 truncate">{chat.title}</span>
+        <span className="min-w-0 flex-1 truncate">{chat.title}</span>
         <button
           type="button"
           aria-label={`Delete ${chat.title}`}
