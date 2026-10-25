@@ -24,6 +24,12 @@ export const api = {
   listChats: () => request<Chat[]>('/chats'),
   createChat: (title?: string) =>
     request<Chat>('/chats', { method: 'POST', body: JSON.stringify(title ? { title } : {}) }),
+  renameChat: (chatId: string, title: string) =>
+    request<Chat>(`/chats/${chatId}`, { method: 'PATCH', body: JSON.stringify({ title }) }),
+  deleteChat: async (chatId: string): Promise<void> => {
+    const res = await fetch(`${API_URL}/chats/${chatId}`, { method: 'DELETE' })
+    if (!res.ok) throw new ApiError(res.status, await res.text())
+  },
   listMessages: (chatId: string) => request<Message[]>(`/chats/${chatId}/messages`),
 
   /** Opens the SSE stream; the caller consumes `res.body` with `parseSSE`. */

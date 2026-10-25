@@ -14,11 +14,13 @@ export function ChatWindow({ chatId }: Props) {
   const messages = useMessages(chatId)
   const stream = useChatStream(chatId)
 
-  // First prompt handed over from the "new chat" landing page.
+  // First prompt handed over from the "new chat" landing page. `send` only
+  // changes identity with chatId, so this runs once per chat.
+  const { send } = stream
   useEffect(() => {
     const first = pendingPrompt.take(chatId)
-    if (first) void stream.send(first)
-  }, [chatId])
+    if (first) void send(first)
+  }, [chatId, send])
 
   return (
     <div className="flex h-full flex-col">
