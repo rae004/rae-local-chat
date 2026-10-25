@@ -7,7 +7,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from rae_api.main import app
-from rae_db import Base, get_session
+from rae_db import Base, get_session, get_session_factory
 from rae_db.settings import get_db_settings
 
 TEST_DB = "chat_test"
@@ -33,23 +33,32 @@ async def test_db_url() -> str:
 
 
 @pytest.fixture
-async def session(test_db_url: str) -> AsyncIterator[AsyncSession]:
+async def session_factory(test_db_url: str) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
     engine = create_async_engine(test_db_url)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as s:
-        yield s
+    yield async_sessionmaker(engine, expire_on_commit=False)
     await engine.dispose()
 
 
 @pytest.fixture
-async def client(session: AsyncSession) -> AsyncIterator[AsyncClient]:
-    async def _override() -> AsyncIterator[AsyncSession]:
+async def session(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> AsyncIterator[AsyncSession]:
+    async with session_factory() as s:
+        yield s
+
+
+@pytest.fixture
+async def client(
+    session: AsyncSession, session_factory: async_sessionmaker[AsyncSession]
+) -> AsyncIterator[AsyncClient]:
+    async def _override_session() -> AsyncIterator[AsyncSession]:
         yield session
 
-    app.dependency_overrides[get_session] = _override
+    app.dependency_overrides[get_session] = _override_session
+    app.dependency_overrides[get_session_factory] = lambda: session_factory
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
