@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.14"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -811,7 +811,7 @@ wheels = [
 
 [[package]]
 name = "rae-api"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "api" }
 dependencies = [
     { name = "anyio" },
@@ -834,7 +834,7 @@ requires-dist = [
 
 [[package]]
 name = "rae-db"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "db" }
 dependencies = [
     { name = "alembic" },
@@ -853,7 +853,7 @@ requires-dist = [
 
 [[package]]
 name = "rae-local-chat"
-version = "0.0.0"
+version = "0.1.0"
 source = { virtual = "." }
 
 [package.dev-dependencies]
