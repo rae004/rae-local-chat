@@ -25,6 +25,12 @@ services:
       DATABASE_URL: postgresql+asyncpg://chat:chat@postgres:5432/chat
       OLLAMA_BASE_URL: http://workhorse:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:latest}
+      # MCP servers the model may call (Streamable HTTP). GitHub's hosted server
+      # is added automatically when GITHUB_PERSONAL_ACCESS_TOKEN is set.
+      MCP_SERVERS: >-
+        [{"name":"filesystem","url":"http://mcp-filesystem:8000/mcp"},
+         {"name":"memory","url":"http://mcp-memory:8000/mcp"}]
+      GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_PERSONAL_ACCESS_TOKEN:-}
     extra_hosts:
       - "workhorse:${WORKHORSE_IP:?set WORKHORSE_IP in .env (LAN IP of the Ollama box)}"
     volumes:
@@ -34,6 +40,31 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mcp-filesystem:
+        condition: service_started
+      mcp-memory:
+        condition: service_started
+
+  # --- MCP servers -----------------------------------------------------------
+  # Off-the-shelf stdio servers, exposed over Streamable HTTP by supergateway.
+  mcp-filesystem:
+    image: supercorp/supergateway:latest
+    command: >-
+      --stdio "npx -y @modelcontextprotocol/server-filesystem /workspace"
+      --outputTransport streamableHttp --port 8000
+    volumes:
+      # What the model can read (and, after Milestone E2 approval, write).
+      - ${MCP_WORKSPACE:-.}:/workspace
+
+  mcp-memory:
+    image: supercorp/supergateway:latest
+    command: >-
+      --stdio "npx -y @modelcontextprotocol/server-memory"
+      --outputTransport streamableHttp --port 8000
+    environment:
+      MEMORY_FILE_PATH: /data/memory.jsonl
+    volumes:
+      - mcpmemory:/data
 
   frontend:
     build:
@@ -51,3 +82,4 @@ services:
 
 volumes:
   pgdata:
+  mcpmemory:
