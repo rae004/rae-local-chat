@@ -5,13 +5,19 @@ import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from rae_api.routers import chats, models, stream
+from rae_api.routers import chats, models, stream, tools
+from rae_api.services.mcp import McpRegistry
 from rae_api.settings import get_settings
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
+    registry = McpRegistry(
+        settings.all_mcp_servers(), result_max_chars=settings.tool_result_max_chars
+    )
+    await registry.refresh()  # a down server is logged, not fatal
+    app.state.mcp = registry
     timeout = httpx.Timeout(10.0, read=settings.ollama_read_timeout)
     async with httpx.AsyncClient(base_url=settings.ollama_base_url, timeout=timeout) as http:
         app.state.ollama_http = http
@@ -30,6 +36,7 @@ app.add_middleware(
 app.include_router(chats.router)
 app.include_router(stream.router)
 app.include_router(models.router)
+app.include_router(tools.router)
 
 
 @app.get("/health")
