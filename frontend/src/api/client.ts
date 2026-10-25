@@ -1,4 +1,4 @@
-import type { Chat, Message } from './types'
+import type { Chat, Message, ModelInfo } from './types'
 
 export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -31,17 +31,19 @@ export const api = {
     if (!res.ok) throw new ApiError(res.status, await res.text())
   },
   listMessages: (chatId: string) => request<Message[]>(`/chats/${chatId}/messages`),
+  listModels: () => request<ModelInfo[]>('/models'),
 
   /** Opens the SSE stream; the caller consumes `res.body` with `parseSSE`. */
   streamMessage: async (
     chatId: string,
     content: string,
+    model: string | null,
     signal: AbortSignal,
   ): Promise<ReadableStream<Uint8Array>> => {
     const res = await fetch(`${API_URL}/chats/${chatId}/stream`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, model }),
       signal,
     })
     if (!res.ok) throw new ApiError(res.status, await res.text())

@@ -3,8 +3,8 @@ import { useEffect } from 'react'
 import { useChatStream } from '../hooks/useChatStream'
 import { useMessages } from '../hooks/useMessages'
 import { pendingPrompt } from '../lib/pendingPrompt'
+import { Composer } from './Composer'
 import { MessageList } from './MessageList'
-import { PromptBox } from './PromptBox'
 
 interface Props {
   chatId: string
@@ -19,7 +19,7 @@ export function ChatWindow({ chatId }: Props) {
   const { send } = stream
   useEffect(() => {
     const first = pendingPrompt.take(chatId)
-    if (first) void send(first)
+    if (first) void send(first.content, first.model)
   }, [chatId, send])
 
   return (
@@ -44,16 +44,11 @@ export function ChatWindow({ chatId }: Props) {
           {stream.error}
         </div>
       ) : null}
-      <div className="flex items-end">
-        <div className="flex-1">
-          <PromptBox onSubmit={stream.send} disabled={stream.isStreaming} autoFocus />
-        </div>
-        {stream.isStreaming ? (
-          <button type="button" className="btn btn-outline mr-4 mb-4" onClick={stream.stop}>
-            Stop
-          </button>
-        ) : null}
-      </div>
+      <Composer
+        onSubmit={stream.send}
+        disabled={stream.isStreaming}
+        onStop={stream.isStreaming ? stream.stop : undefined}
+      />
     </div>
   )
 }

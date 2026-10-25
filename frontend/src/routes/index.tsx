@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 
 import { api } from '../api/client'
-import { PromptBox } from '../components/PromptBox'
+import { Composer } from '../components/Composer'
 import { chatsKey } from '../hooks/useChats'
 import { pendingPrompt } from '../lib/pendingPrompt'
 
@@ -18,12 +18,12 @@ function NewChat() {
   const [busy, setBusy] = useState(false)
 
   // Create the chat, stash the prompt, and let ChatWindow open the stream.
-  const start = async (content: string) => {
+  const start = async (content: string, model: string | null) => {
     setBusy(true)
     setError(null)
     try {
       const chat = await api.createChat()
-      pendingPrompt.set(chat.id, content)
+      pendingPrompt.set(chat.id, { content, model })
       void qc.invalidateQueries({ queryKey: chatsKey })
       await navigate({ to: '/chats/$chatId', params: { chatId: chat.id } })
     } catch (e) {
@@ -43,7 +43,7 @@ function NewChat() {
           </div>
         ) : null}
       </div>
-      <PromptBox onSubmit={start} disabled={busy} autoFocus />
+      <Composer onSubmit={start} disabled={busy} />
     </div>
   )
 }

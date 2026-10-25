@@ -8,7 +8,7 @@ import { chatsKey } from './useChats'
 import { messagesKey } from './useMessages'
 
 export interface ChatStream {
-  send: (content: string) => Promise<void>
+  send: (content: string, model?: string | null) => Promise<void>
   stop: () => void
   partial: string
   isStreaming: boolean
@@ -45,7 +45,7 @@ export function useChatStream(chatId: string): ChatStream {
   useEffect(() => stop, [chatId, stop])
 
   const send = useCallback(
-    async (content: string) => {
+    async (content: string, model: string | null = null) => {
       abortRef.current?.abort()
       const ac = new AbortController()
       abortRef.current = ac
@@ -54,7 +54,7 @@ export function useChatStream(chatId: string): ChatStream {
       setIsStreaming(true)
       let text = ''
       try {
-        const body = await api.streamMessage(chatId, content, ac.signal)
+        const body = await api.streamMessage(chatId, content, model, ac.signal)
         for await (const ev of parseSSE(body, ac.signal)) {
           switch (ev.event) {
             case 'user':

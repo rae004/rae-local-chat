@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 import type { Message } from '../api/types'
+import { Markdown } from './Markdown'
 
 interface Props {
   messages: Message[]
@@ -26,12 +27,12 @@ export function MessageList({ messages, partial = '', isStreaming = false }: Pro
     <div className="flex-1 space-y-2 overflow-y-auto p-4">
       {messages.map((m) => (
         <Bubble key={m.id} role={m.role} header={m.model ? `${m.role} · ${m.model}` : m.role}>
-          {m.content}
+          {m.role === 'assistant' ? <Markdown>{m.content}</Markdown> : m.content}
         </Bubble>
       ))}
       {isStreaming ? (
         <Bubble role="assistant" header="assistant">
-          {partial}
+          <Markdown>{partial}</Markdown>
           <span className="loading loading-dots loading-xs ml-1 align-middle" />
         </Bubble>
       ) : null}
@@ -53,7 +54,7 @@ function Bubble({
   return (
     <div className={`chat ${mine ? 'chat-end' : 'chat-start'}`}>
       <div className="chat-header text-xs opacity-60">{header}</div>
-      <div className={`chat-bubble whitespace-pre-wrap ${mine ? 'chat-bubble-primary' : ''}`}>
+      <div className={`chat-bubble ${mine ? 'chat-bubble-primary whitespace-pre-wrap' : ''}`}>
         {children}
       </div>
     </div>
