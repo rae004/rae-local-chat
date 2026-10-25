@@ -25,6 +25,8 @@ class ChatRead(BaseModel):
 
 class MessageCreate(BaseModel):
     content: str = Field(min_length=1)
+    # Ollama model name; None = server default (OLLAMA_MODEL).
+    model: str | None = Field(default=None, max_length=100)
 
 
 class MessageRead(BaseModel):
@@ -36,3 +38,12 @@ class MessageRead(BaseModel):
     content: str
     model: str | None
     created_at: datetime
+
+
+class ModelRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+    size: int
+    parameter_size: str | None
+    family: str | None

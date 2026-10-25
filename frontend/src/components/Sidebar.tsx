@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import type { Chat } from '../api/types'
 import { useChats, useDeleteChat, useRenameChat } from '../hooks/useChats'
+import { ThemeToggle } from './ThemeToggle'
 
 export function Sidebar() {
   const chats = useChats()
@@ -25,7 +26,10 @@ export function Sidebar() {
           chats.data.map((c) => <ChatRow key={c.id} chat={c} />)
         )}
       </ul>
-      <div className="border-t border-base-300 p-3 text-xs opacity-60">Rae Bot</div>
+      <div className="flex items-center justify-between border-t border-base-300 p-3">
+        <span className="text-xs opacity-60">Rae Bot</span>
+        <ThemeToggle />
+      </div>
     </aside>
   )
 }

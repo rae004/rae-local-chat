@@ -15,3 +15,10 @@ export interface Message {
   model: string | null
   created_at: string
 }
+
+export interface ModelInfo {
+  name: string
+  size: number
+  parameter_size: string | null
+  family: string | null
+}

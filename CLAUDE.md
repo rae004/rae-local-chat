@@ -35,7 +35,14 @@ is dev.
   One lockfile at the root.
 - Node: **pnpm** via corepack. Lockfile committed.
 - Branch per milestone (`milestone-a-scaffold`), small commits, PR to `main`, human reviews
-  every diff. CI (ruff, mypy, pytest, eslint, tsc, vitest) must be green.
+  every diff. CI (ruff, mypy, pytest, oxlint, tsc, vitest) must be green.
+- **Never stack PRs.** Every PR targets `main`; the next milestone branch is cut only after
+  the previous PR is merged. Delete the branch after merge. (A stacked PR once merged into
+  its feature branch instead of `main`.)
+- Frontend deps live in the container's anonymous `node_modules` volume, which compose
+  keeps across rebuilds. After `pnpm add`, run `pnpm frontend:deps`
+  (`docker compose up -d --build -V frontend`) — without `-V` pnpm's deps check fails on
+  start and the container crash-loops.
 - Commits end with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
   PR descriptions end with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 - rae004 is terse-decisive and learning-first: recommend, then confirm. Keep answers short.
@@ -46,5 +53,6 @@ See `package.json` scripts: `pnpm dev | down | migrate | migration | lint | type
 
 ## Milestones
 
-- **A** scaffold + echo endpoint (no Ollama) · **B** SSE streaming · **C** history + sidebar
-  · **D** polish (theme toggle, model selector, shortcuts, markdown).
+- **A** scaffold + echo endpoint ✅ · **B** SSE streaming ✅ · **C** history + sidebar ✅
+  · **D** polish: theme toggle, model selector (`/models` ← Ollama `/api/tags`), markdown.
+- App display name is **Rae Bot**; repo stays `rae-local-chat`.

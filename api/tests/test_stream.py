@@ -7,7 +7,7 @@ from httpx import AsyncClient
 
 from rae_api.deps import get_ollama
 from rae_api.main import app
-from rae_api.services.ollama import ChatChunk, OllamaError
+from rae_api.services.ollama import ChatChunk, ModelInfo, OllamaError
 
 
 class FakeOllama:
@@ -25,6 +25,12 @@ class FakeOllama:
                 raise OllamaError("model exploded")
             yield ChatChunk(content=tok, done=False, model=model)
         yield ChatChunk(content="", done=True, model=model)
+
+    async def list_models(self) -> list[ModelInfo]:
+        return [
+            ModelInfo(name="qwen2.5-coder:latest", size=4, parameter_size="7.6B", family="qwen2"),
+            ModelInfo(name="starcoder2:7b", size=4, parameter_size="7B", family="starcoder2"),
+        ]
 
 
 def parse_sse(body: str) -> list[tuple[str, dict[str, object]]]:
@@ -141,3 +147,26 @@ def test_title_from_prompt_truncates_at_word_boundary() -> None:
     assert t.endswith("…") and len(t) <= 61 and not t[:-1].endswith(" ")
     assert title_from_prompt("x" * 100) == "x" * 60 + "…"
     assert title_from_prompt("   ") == "New chat"
+
+
+async def test_stream_uses_requested_model(client: AsyncClient, fake_ollama: FakeOllama) -> None:
+    chat_id = await _new_chat(client)
+    r = await client.post(
+        f"/chats/{chat_id}/stream", json={"content": "hi", "model": "starcoder2:7b"}
+    )
+    assert r.status_code == 200
+    assert fake_ollama.calls[0][0] == "starcoder2:7b"
+    assert parse_sse(r.text)[-1][1]["model"] == "starcoder2:7b"
+
+    r = await client.post(f"/chats/{chat_id}/stream", json={"content": "again"})
+    assert fake_ollama.calls[1][0] == "qwen2.5-coder:latest"  # settings default
+
+
+async def test_list_models(client: AsyncClient, fake_ollama: FakeOllama) -> None:
+    r = await client.get("/models")
+    assert r.status_code == 200
+    assert [m["name"] for m in r.json()] == ["qwen2.5-coder:latest", "starcoder2:7b"]
+    assert r.json()[0]["parameter_size"] == "7.6B"
+
+    r = await client.get("/models/default")
+    assert r.json() == {"name": "qwen2.5-coder:latest"}

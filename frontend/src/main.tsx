@@ -4,7 +4,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import './index.css'
+import { applyTheme, getInitialTheme } from './lib/theme'
 import { routeTree } from './routeTree.gen'
+
+applyTheme(getInitialTheme())
 
 const queryClient = new QueryClient()
 const router = createRouter({ routeTree })

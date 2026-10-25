@@ -143,7 +143,7 @@ async def stream_message(
     if await session.get(Chat, chat_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Chat not found")
     return StreamingResponse(
-        _stream(factory, chat_id, payload.content, ollama, settings.ollama_model),
+        _stream(factory, chat_id, payload.content, ollama, payload.model or settings.ollama_model),
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )
