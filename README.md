@@ -36,3 +36,18 @@ The api container runs `alembic upgrade head` on start.
 - `frontend/` — Vite + React + TanStack Router/Query + Tailwind/DaisyUI
 
 Python is a single uv workspace rooted here (`uv sync` installs both packages).
+
+## Tools (MCP)
+
+The model can call tools from MCP servers that run as compose services:
+
+| server | what | how |
+|---|---|---|
+| `filesystem` | read/search files under `MCP_WORKSPACE` (default: this repo) | `@modelcontextprotocol/server-filesystem` via supergateway |
+| `memory` | knowledge-graph notes that persist across chats | `@modelcontextprotocol/server-memory` via supergateway |
+| `github` | repos, issues, PRs | GitHub's hosted server; set `GITHUB_PERSONAL_ACCESS_TOKEN` in `.env` |
+
+Read-only tools run automatically and show up as collapsible cards in the chat. Tools that
+modify state are refused until the approve/deny flow lands (Milestone E2). `GET /tools`
+lists the catalogue and per-server status; the **Tools** toggle in the composer turns tool
+use off per message. Only models whose Ollama `capabilities` include `tools` can use them.

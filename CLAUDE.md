@@ -13,7 +13,12 @@ is dev.
 - **Frontend** (`frontend/`): React, Vite, TypeScript, TanStack Query, TanStack Router,
   Tailwind 4 + DaisyUI 5. Themes `cyberpunk` (light) / `dracula` (dark).
 - **Backend** (`api/`): FastAPI, Pydantic schemas, SQLAlchemy async. Proxies Ollama NDJSON
-  → SSE.
+  → SSE. MCP *client* (`mcp` v2 SDK) for tool use: `services/mcp.py` is the registry,
+  `services/agent.py` the Ollama ⇄ tools loop.
+- **MCP servers**: compose services over Streamable HTTP. Bought: `server-filesystem`,
+  `server-memory` (stdio, wrapped by `supercorp/supergateway`), GitHub's hosted server
+  (`api.githubcopilot.com/mcp/`, needs `GITHUB_PERSONAL_ACCESS_TOKEN`). Built (E3):
+  `mcp-servers/shell/`. Never extend `rae-local-agent` with chat tools.
 - **Data layer** (`db/`): SQLAlchemy ORM models, async engine/session, Alembic. No Dockerfile,
   no compose service — `api/` depends on it as a uv workspace member.
 - **DB**: Postgres in compose.
@@ -28,6 +33,13 @@ is dev.
    stream end, `queryClient.setQueryData(['messages', chatId], …)` splices the finished
    message in.
 4. **Python `requires-python = ">=3.14"`**, runtime image `python:3.14-slim`. Node `>= 24.22.1`.
+5. **Tools: read-only auto-runs, everything else asks.** Read-only comes from the MCP
+   `readOnlyHint` annotation; a tool without annotations is treated as a write. Tool names
+   reach the model as `<server>__<tool>`.
+6. **qwen2.5-coder doesn't emit structured `tool_calls` on Ollama** (both sizes, streaming
+   or not): it writes bare `{"name", "arguments"}` JSON as text. `services/toolcalls.py`
+   holds back tokens that look like that and parses them; `tool_calls` from Ollama are
+   still honoured when a model does produce them. Don't "fix" this by prompt alone.
 
 ## House rules
 
@@ -58,5 +70,8 @@ See `package.json` scripts: `pnpm dev | down | migrate | migration | lint | type
 ## Milestones
 
 - **A** scaffold + echo endpoint ✅ · **B** SSE streaming ✅ · **C** history + sidebar ✅
-  · **D** polish: theme toggle, model selector (`/models` ← Ollama `/api/tags`), markdown.
+  · **D** polish: theme toggle, model selector, markdown ✅
+- **E** tool use via MCP, three PRs: **E1** registry + loop + read-only tools + tool cards
+  · **E2** approve/deny flow for write/exec tools (pending registry, decision endpoint,
+  buttons on the card) · **E3** in-tree sandboxed shell server `mcp-servers/shell/`.
 - App display name is **Rae Bot**; repo stays `rae-local-chat`.
