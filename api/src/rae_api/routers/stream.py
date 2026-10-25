@@ -11,6 +11,7 @@ import json
 import uuid
 from collections.abc import AsyncIterator
 
+import anyio
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -91,9 +92,11 @@ async def _stream(
         yield sse("error", {"detail": f"{type(e).__name__}: {e}"})
         return
     finally:
-        # Client went away mid-stream (GeneratorExit/CancelledError): keep what we got.
+        # Client went away mid-stream (CancelledError): keep what we got. The
+        # request's cancel scope is already cancelled, so shield the DB write.
         if not finished and parts:
-            await _persist_assistant(factory, chat_id, "".join(parts), model, partial=True)
+            with anyio.CancelScope(shield=True):
+                await _persist_assistant(factory, chat_id, "".join(parts), model, partial=True)
 
     assistant = await _persist_assistant(factory, chat_id, "".join(parts), model, partial=False)
     yield sse("done", MessageRead.model_validate(assistant))
