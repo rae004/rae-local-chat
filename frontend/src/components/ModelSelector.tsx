@@ -33,6 +33,7 @@ export function ModelSelector({ value, onChange, disabled }: Props) {
         <option key={m.name} value={m.name}>
           {m.name}
           {m.parameter_size ? ` · ${m.parameter_size}` : ''}
+          {m.tools ? '' : ' · no tools'}
         </option>
       ))}
     </select>

@@ -1,15 +1,19 @@
-"""SSE endpoint: persist the prompt, stream Ollama's reply, persist the reply.
+"""SSE endpoint: persist the prompt, run the tool loop against Ollama, persist each step.
 
 Events (all `data` is JSON):
-  user   -> MessageRead      the persisted user message
-  token  -> {"content": str} one streamed chunk
-  done   -> MessageRead      the persisted assistant message
-  error  -> {"detail": str}  Ollama failed; the user message is still persisted
+  user        -> MessageRead      the persisted user message
+  token       -> {"content": str} one streamed chunk of assistant prose
+  tool_call   -> ToolCallRead     the model asked for a tool (running now, or refused)
+  tool_result -> ToolResultRead   what the tool returned
+  message     -> MessageRead      an intermediate persisted row (assistant w/ tool_calls, tool)
+  done        -> MessageRead      the persisted final assistant message
+  error       -> {"detail": str}  Ollama failed; everything persisted so far stays
 """
 
 import json
 import uuid
 from collections.abc import AsyncIterator
+from typing import Any
 
 import anyio
 from fastapi import APIRouter, HTTPException, status
@@ -18,8 +22,10 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from rae_api.deps import OllamaDep, SessionDep, SessionFactoryDep, SettingsDep
-from rae_api.schemas.chat import MessageCreate, MessageRead
+from rae_api.deps import OllamaDep, RegistryDep, SessionDep, SessionFactoryDep, SettingsDep
+from rae_api.schemas.chat import MessageCreate, MessageRead, ToolCallRead, ToolResultRead
+from rae_api.services import agent
+from rae_api.services.mcp import McpRegistry
 from rae_api.services.ollama import OllamaClient, OllamaError
 from rae_db import Chat, Message, Role
 
@@ -45,11 +51,23 @@ def sse(event: str, data: BaseModel | dict[str, object]) -> str:
     return f"event: {event}\ndata: {body}\n\n"
 
 
-async def _history(session: AsyncSession, chat_id: uuid.UUID) -> list[dict[str, str]]:
+def to_ollama(m: Message) -> dict[str, Any]:
+    """One persisted row as an Ollama chat message."""
+    if m.role is Role.tool:
+        return {"role": "tool", "tool_name": m.tool_name or "", "content": m.content}
+    msg: dict[str, Any] = {"role": m.role.value, "content": m.content}
+    if m.tool_calls:
+        msg["tool_calls"] = [
+            {"function": {"name": c["name"], "arguments": c["arguments"]}} for c in m.tool_calls
+        ]
+    return msg
+
+
+async def _history(session: AsyncSession, chat_id: uuid.UUID) -> list[dict[str, Any]]:
     rows = await session.scalars(
         select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)
     )
-    return [{"role": m.role.value, "content": m.content} for m in rows]
+    return [to_ollama(m) for m in rows]
 
 
 async def _touch_chat(session: AsyncSession, chat_id: uuid.UUID) -> None:
@@ -59,31 +77,29 @@ async def _touch_chat(session: AsyncSession, chat_id: uuid.UUID) -> None:
         chat.updated_at = func.now()
 
 
-async def _persist_assistant(
-    factory: async_sessionmaker[AsyncSession],
-    chat_id: uuid.UUID,
-    content: str,
-    model: str,
-    *,
-    partial: bool,
-) -> Message:
+async def _persist(factory: async_sessionmaker[AsyncSession], msg: Message) -> Message:
     async with factory() as session:
-        msg = Message(chat_id=chat_id, role=Role.assistant, content=content, model=model)
-        if partial:
-            msg.content = content + "\n\n_[stopped]_"
         session.add(msg)
-        await _touch_chat(session, chat_id)
+        await _touch_chat(session, msg.chat_id)
         await session.commit()
         await session.refresh(msg)
         return msg
 
 
+def _assistant(chat_id: uuid.UUID, content: str, model: str, **extra: Any) -> Message:
+    return Message(chat_id=chat_id, role=Role.assistant, content=content, model=model, **extra)
+
+
 async def _stream(
     factory: async_sessionmaker[AsyncSession],
     chat_id: uuid.UUID,
-    prompt: str,
+    payload: MessageCreate,
     ollama: OllamaClient,
+    registry: McpRegistry,
     model: str,
+    *,
+    tools_enabled: bool,
+    max_rounds: int,
 ) -> AsyncIterator[str]:
     # Own sessions: request-scoped dependencies are torn down before a
     # StreamingResponse body runs.
@@ -91,44 +107,79 @@ async def _stream(
         is_first = not await session.scalar(
             select(func.count()).select_from(Message).where(Message.chat_id == chat_id)
         )
-        user_msg = Message(chat_id=chat_id, role=Role.user, content=prompt)
+        user_msg = Message(chat_id=chat_id, role=Role.user, content=payload.content)
         session.add(user_msg)
         chat = await session.get(Chat, chat_id)
         if chat is not None:
             chat.updated_at = func.now()
             if is_first:
                 # First message in this chat: derive the title from it.
-                chat.title = title_from_prompt(prompt)
+                chat.title = title_from_prompt(payload.content)
         await session.commit()
         await session.refresh(user_msg)
         history = await _history(session, chat_id)
     yield sse("user", MessageRead.model_validate(user_msg))
 
-    parts: list[str] = []
+    parts: list[str] = []  # prose of the turn in flight, for partial persistence
     finished = False
     try:
-        async for chunk in ollama.chat_stream(model, history):
-            if chunk.content:
-                parts.append(chunk.content)
-                yield sse("token", {"content": chunk.content})
-            if chunk.done:
-                finished = True
-                break
+        events = agent.run_agent(
+            ollama,
+            registry,
+            model,
+            history,
+            tools_enabled=tools_enabled and payload.tools,
+            max_rounds=max_rounds,
+        )
+        async for ev in events:
+            match ev:
+                case agent.Token(content):
+                    parts.append(content)
+                    yield sse("token", {"content": content})
+                case agent.AssistantTurn(content, calls):
+                    parts.clear()
+                    row = await _persist(
+                        factory,
+                        _assistant(
+                            chat_id, content, model, tool_calls=[c.as_record() for c in calls]
+                        ),
+                    )
+                    yield sse("message", MessageRead.model_validate(row))
+                case agent.ToolCall() as call:
+                    yield sse("tool_call", ToolCallRead(**call.as_record()))
+                case agent.ToolResult(call, content, is_error):
+                    row = await _persist(
+                        factory,
+                        Message(
+                            chat_id=chat_id,
+                            role=Role.tool,
+                            content=content,
+                            tool_call_id=call.id,
+                            tool_name=call.name,
+                            tool_is_error=is_error,
+                        ),
+                    )
+                    result = ToolResultRead(
+                        id=call.id, name=call.name, content=content, is_error=is_error
+                    )
+                    yield sse("tool_result", result)
+                    yield sse("message", MessageRead.model_validate(row))
+                case agent.Finished(content):
+                    finished = True
+                    row = await _persist(factory, _assistant(chat_id, content, model))
+                    yield sse("done", MessageRead.model_validate(row))
     except OllamaError as e:
         yield sse("error", {"detail": str(e)})
-        return
     except Exception as e:  # noqa: BLE001 — surface anything else to the client, then persist
         yield sse("error", {"detail": f"{type(e).__name__}: {e}"})
-        return
     finally:
-        # Client went away mid-stream (CancelledError): keep what we got. The
-        # request's cancel scope is already cancelled, so shield the DB write.
+        # Error, or the client went away mid-stream (CancelledError): keep what
+        # we got. The request's cancel scope may already be cancelled, so shield.
         if not finished and parts:
             with anyio.CancelScope(shield=True):
-                await _persist_assistant(factory, chat_id, "".join(parts), model, partial=True)
-
-    assistant = await _persist_assistant(factory, chat_id, "".join(parts), model, partial=False)
-    yield sse("done", MessageRead.model_validate(assistant))
+                await _persist(
+                    factory, _assistant(chat_id, "".join(parts) + "\n\n_[stopped]_", model)
+                )
 
 
 @router.post("/{chat_id}/stream", status_code=status.HTTP_200_OK)
@@ -138,12 +189,22 @@ async def stream_message(
     session: SessionDep,
     factory: SessionFactoryDep,
     ollama: OllamaDep,
+    registry: RegistryDep,
     settings: SettingsDep,
 ) -> StreamingResponse:
     if await session.get(Chat, chat_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Chat not found")
     return StreamingResponse(
-        _stream(factory, chat_id, payload.content, ollama, payload.model or settings.ollama_model),
+        _stream(
+            factory,
+            chat_id,
+            payload,
+            ollama,
+            registry,
+            payload.model or settings.ollama_model,
+            tools_enabled=settings.tools_enabled,
+            max_rounds=settings.agent_max_rounds,
+        ),
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )

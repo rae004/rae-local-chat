@@ -13,7 +13,7 @@ rae-db = { workspace = true }
 [tool.ruff]
 line-length = 100
 target-version = "py314"
-src = ["api/src", "db/src"]
+src = ["api", "api/src", "db/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]

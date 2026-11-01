@@ -1,8 +1,10 @@
 import enum
 import uuid
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -13,6 +15,7 @@ class Base(DeclarativeBase):
 class Role(enum.StrEnum):
     user = "user"
     assistant = "assistant"
+    tool = "tool"
 
 
 class Chat(Base):
@@ -40,6 +43,13 @@ class Message(Base):
     role: Mapped[Role] = mapped_column(Enum(Role, name="message_role"))
     content: Mapped[str] = mapped_column(Text)
     model: Mapped[str | None] = mapped_column(String(100))
+    # assistant rows: the tool calls the model requested in this turn
+    # [{"id": str, "name": str, "server": str, "arguments": {...}, "read_only": bool}]
+    tool_calls: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    # tool rows: which call this result answers
+    tool_call_id: Mapped[str | None] = mapped_column(String(32))
+    tool_name: Mapped[str | None] = mapped_column(String(200))
+    tool_is_error: Mapped[bool | None] = mapped_column(Boolean)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     chat: Mapped[Chat] = relationship(back_populates="messages")

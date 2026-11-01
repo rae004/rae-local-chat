@@ -76,6 +76,48 @@ describe('useChatStream', () => {
     expect(qc.getQueryData<Message[]>(messagesKey(CHAT))).toEqual([user])
   })
 
+  it('splices tool rounds into the cache and exposes results before their rows land', async () => {
+    const user = msg('u1', 'user', 'read notes')
+    const call = {
+      id: 'c1',
+      name: 'fs__read',
+      server: 'fs',
+      arguments: { path: 'notes.txt' },
+      read_only: true,
+    }
+    const turn: Message = { ...msg('a1', 'assistant', ''), tool_calls: [call] }
+    const toolRow: Message = {
+      ...msg('t1', 'tool', 'buy milk'),
+      tool_call_id: 'c1',
+      tool_name: 'fs__read',
+      tool_is_error: false,
+    }
+    const final = msg('a2', 'assistant', 'It says: buy milk')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      sseResponse([
+        ev('user', user),
+        ev('message', turn),
+        ev('tool_call', call),
+        ev('tool_result', { id: 'c1', name: 'fs__read', content: 'buy milk', is_error: false }),
+        ev('message', toolRow),
+        ev('token', { content: 'It says: ' }),
+        ev('token', { content: 'buy milk' }),
+        ev('done', final),
+      ]),
+    )
+    const { qc, hook } = setup()
+
+    await act(() => hook.result.current.send('read notes', { tools: false }))
+
+    await waitFor(() => expect(hook.result.current.isStreaming).toBe(false))
+    expect(qc.getQueryData<Message[]>(messagesKey(CHAT))).toEqual([user, turn, toolRow, final])
+    expect(hook.result.current.toolResults).toEqual({
+      c1: { id: 'c1', name: 'fs__read', content: 'buy milk', is_error: false },
+    })
+    const body = JSON.parse(String((fetchSpy.mock.calls[0]![1] as RequestInit).body))
+    expect(body).toEqual({ content: 'read notes', model: null, tools: false })
+  })
+
   it('reports HTTP failures', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response('Chat not found', { status: 404 }),

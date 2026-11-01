@@ -4,6 +4,7 @@ import httpx
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from rae_api.services.mcp import McpRegistry
 from rae_api.services.ollama import OllamaClient
 from rae_api.settings import Settings, get_settings
 from rae_db import get_session, get_session_factory
@@ -19,3 +20,11 @@ def get_ollama(request: Request) -> OllamaClient:
 
 
 OllamaDep = Annotated[OllamaClient, Depends(get_ollama)]
+
+
+def get_registry(request: Request) -> McpRegistry:
+    registry: McpRegistry = request.app.state.mcp
+    return registry
+
+
+RegistryDep = Annotated[McpRegistry, Depends(get_registry)]

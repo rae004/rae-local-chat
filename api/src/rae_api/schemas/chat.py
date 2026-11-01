@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -27,6 +28,27 @@ class MessageCreate(BaseModel):
     content: str = Field(min_length=1)
     # Ollama model name; None = server default (OLLAMA_MODEL).
     model: str | None = Field(default=None, max_length=100)
+    # Offer MCP tools to the model for this turn.
+    tools: bool = True
+
+
+class ToolCallRead(BaseModel):
+    """One tool invocation requested by the model (SSE `tool_call`, and persisted)."""
+
+    id: str
+    name: str
+    server: str
+    arguments: dict[str, Any]
+    read_only: bool
+
+
+class ToolResultRead(BaseModel):
+    """SSE `tool_result`: what the tool returned for `id`."""
+
+    id: str
+    name: str
+    content: str
+    is_error: bool
 
 
 class MessageRead(BaseModel):
@@ -38,6 +60,12 @@ class MessageRead(BaseModel):
     content: str
     model: str | None
     created_at: datetime
+    # assistant rows that requested tools
+    tool_calls: list[ToolCallRead] | None = None
+    # tool rows
+    tool_call_id: str | None = None
+    tool_name: str | None = None
+    tool_is_error: bool | None = None
 
 
 class ModelRead(BaseModel):
@@ -47,3 +75,17 @@ class ModelRead(BaseModel):
     size: int
     parameter_size: str | None
     family: str | None
+    tools: bool
+
+
+class ToolRead(BaseModel):
+    server: str
+    name: str
+    qualified: str
+    description: str
+    read_only: bool
+
+
+class ToolsRead(BaseModel):
+    servers: dict[str, str]
+    tools: list[ToolRead]

@@ -1,36 +1,14 @@
 import json
 import uuid
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import pytest
 from httpx import AsyncClient
 
-from rae_api.deps import get_ollama
+from rae_api.deps import get_ollama, get_registry
 from rae_api.main import app
-from rae_api.services.ollama import ChatChunk, ModelInfo, OllamaError
-
-
-class FakeOllama:
-    def __init__(self, tokens: list[str], *, fail_after: int | None = None) -> None:
-        self.tokens = tokens
-        self.fail_after = fail_after
-        self.calls: list[tuple[str, list[dict[str, str]]]] = []
-
-    async def chat_stream(
-        self, model: str, messages: list[dict[str, str]]
-    ) -> AsyncIterator[ChatChunk]:
-        self.calls.append((model, messages))
-        for i, tok in enumerate(self.tokens):
-            if self.fail_after is not None and i == self.fail_after:
-                raise OllamaError("model exploded")
-            yield ChatChunk(content=tok, done=False, model=model)
-        yield ChatChunk(content="", done=True, model=model)
-
-    async def list_models(self) -> list[ModelInfo]:
-        return [
-            ModelInfo(name="qwen2.5-coder:latest", size=4, parameter_size="7.6B", family="qwen2"),
-            ModelInfo(name="starcoder2:7b", size=4, parameter_size="7B", family="starcoder2"),
-        ]
+from tests.fakes import FakeOllama, FakeRegistry
 
 
 def parse_sse(body: str) -> list[tuple[str, dict[str, object]]]:
@@ -82,7 +60,7 @@ async def test_stream_sends_full_history_to_ollama(
     await client.post(f"/chats/{chat_id}/stream", json={"content": "first"})
     await client.post(f"/chats/{chat_id}/stream", json={"content": "second"})
 
-    _, history = fake_ollama.calls[1]
+    _, history, _ = fake_ollama.calls[1]
     assert [m["role"] for m in history] == ["user", "assistant", "user"]
     assert history[-1]["content"] == "second"
 
@@ -167,6 +145,119 @@ async def test_list_models(client: AsyncClient, fake_ollama: FakeOllama) -> None
     assert r.status_code == 200
     assert [m["name"] for m in r.json()] == ["qwen2.5-coder:latest", "starcoder2:7b"]
     assert r.json()[0]["parameter_size"] == "7.6B"
+    assert [m["tools"] for m in r.json()] == [True, False]
 
     r = await client.get("/models/default")
     assert r.json() == {"name": "qwen2.5-coder:latest"}
+
+
+# --- tool rounds ---------------------------------------------------------------
+
+
+@pytest.fixture
+def registry() -> Iterator[FakeRegistry]:
+    reg = FakeRegistry()
+    app.dependency_overrides[get_registry] = lambda: reg
+    yield reg
+    app.dependency_overrides.pop(get_registry, None)
+
+
+def _tooling_ollama(*, text: bool) -> FakeOllama:
+    """Round 1 asks for `fs__read` (structured, or as bare JSON text); round 2 answers."""
+    call: dict[str, Any] = {"name": "fs__read", "arguments": {"path": "notes.txt"}}
+    first: list[Any] = [json.dumps(call)] if text else [FakeOllama.call(**call)]
+    return FakeOllama(first, ["It says: ", "buy milk"])
+
+
+@pytest.mark.parametrize("as_text", [False, True])
+async def test_tool_round_is_streamed_and_persisted(
+    client: AsyncClient, registry: FakeRegistry, as_text: bool
+) -> None:
+    fake = _tooling_ollama(text=as_text)
+    app.dependency_overrides[get_ollama] = lambda: fake
+    try:
+        chat_id = await _new_chat(client)
+        r = await client.post(f"/chats/{chat_id}/stream", json={"content": "read my notes"})
+        events = parse_sse(r.text)
+        kinds = [e for e, _ in events]
+        assert kinds == [
+            "user",
+            "message",  # assistant turn with tool_calls
+            "tool_call",
+            "tool_result",
+            "message",  # tool row
+            "token",
+            "token",
+            "done",
+        ]
+        call = events[2][1]
+        assert call["name"] == "fs__read" and call["server"] == "fs" and call["read_only"]
+        assert call["arguments"] == {"path": "notes.txt"}
+        result = events[3][1]
+        assert result["id"] == call["id"] and not result["is_error"]
+        assert result["content"] == "buy milk\n"
+        assert events[-1][1]["content"] == "It says: buy milk"
+        assert registry.calls == [("fs__read", {"path": "notes.txt"})]
+
+        # Round 2 saw the tool exchange in Ollama's own shape.
+        _, history, _ = fake.calls[1]
+        assert [m["role"] for m in history] == ["user", "assistant", "tool"]
+        assert history[1]["tool_calls"][0]["function"]["name"] == "fs__read"
+        assert history[2] == {"role": "tool", "tool_name": "fs__read", "content": "buy milk\n"}
+        # Only read-only tools were offered.
+        offered = fake.calls[0][2] or []
+        assert [t["function"]["name"] for t in offered] == ["fs__read"]
+
+        rows = (await client.get(f"/chats/{chat_id}/messages")).json()
+        assert [m["role"] for m in rows] == ["user", "assistant", "tool", "assistant"]
+        assert rows[1]["tool_calls"][0]["name"] == "fs__read"
+        assert rows[2]["tool_call_id"] == call["id"] and rows[2]["tool_name"] == "fs__read"
+        assert rows[2]["tool_is_error"] is False
+
+        # The next turn replays the whole exchange to the model.
+        await client.post(f"/chats/{chat_id}/stream", json={"content": "thanks"})
+        _, history, _ = fake.calls[2]
+        assert [m["role"] for m in history] == ["user", "assistant", "tool", "assistant", "user"]
+    finally:
+        app.dependency_overrides.pop(get_ollama, None)
+
+
+async def test_tools_can_be_disabled_per_message(
+    client: AsyncClient, registry: FakeRegistry
+) -> None:
+    fake = FakeOllama(["plain"])
+    app.dependency_overrides[get_ollama] = lambda: fake
+    try:
+        chat_id = await _new_chat(client)
+        await client.post(f"/chats/{chat_id}/stream", json={"content": "hi", "tools": False})
+        assert fake.calls[0][2] is None
+        await client.post(f"/chats/{chat_id}/stream", json={"content": "hi"})
+        assert fake.calls[1][2] is not None
+    finally:
+        app.dependency_overrides.pop(get_ollama, None)
+
+
+async def test_write_tool_is_refused_until_approval_flow_exists(
+    client: AsyncClient, registry: FakeRegistry
+) -> None:
+    fake = FakeOllama([FakeOllama.call("fs__write", {"path": "x", "content": "y"})], ["ok"])
+    app.dependency_overrides[get_ollama] = lambda: fake
+    try:
+        chat_id = await _new_chat(client)
+        r = await client.post(f"/chats/{chat_id}/stream", json={"content": "write it"})
+        results = [d for e, d in parse_sse(r.text) if e == "tool_result"]
+        assert results[0]["is_error"] and "approval" in str(results[0]["content"])
+        assert registry.calls == []
+    finally:
+        app.dependency_overrides.pop(get_ollama, None)
+
+
+async def test_list_tools(client: AsyncClient, registry: FakeRegistry) -> None:
+    r = await client.get("/tools")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["servers"] == {"fs": "ok"}
+    assert [(t["qualified"], t["read_only"]) for t in body["tools"]] == [
+        ("fs__read", True),
+        ("fs__write", False),
+    ]
