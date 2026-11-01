@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/rae004/rae-local-chat/compare/v0.1.1...v0.2.0) (2026-11-01)
+
+
+### Features
+
+* MCP tool use — registry, tool-calling loop, read-only tools (E1) ([#15](https://github.com/rae004/rae-local-chat/issues/15)) ([0fc01f0](https://github.com/rae004/rae-local-chat/commit/0fc01f0bfde29528b5bf441eed3f61e3c4ad112a))
+
 ## [0.1.1](https://github.com/rae004/rae-local-chat/compare/v0.1.0...v0.1.1) (2026-10-25)
 
 
