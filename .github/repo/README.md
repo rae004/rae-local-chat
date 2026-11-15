@@ -19,3 +19,8 @@ pnpm repo:apply   # push the files to GitHub (needs repo admin)
 CI runs `repo:diff` on every PR that touches this folder. The default Actions token can't read
 the Actions-permission endpoints, so those report `skipped` in CI unless a `REPO_ADMIN_TOKEN`
 secret (fine-grained PAT, Administration: read) is set. Applying is always done locally.
+
+## One-off prerequisites (no JSON body, so not managed here)
+
+- Dependabot alerts must be on before `security_and_analysis.dependabot_security_updates` can
+  be enabled: `gh api -X PUT repos/{owner}/{repo}/vulnerability-alerts` (204 = on).

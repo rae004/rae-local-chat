@@ -14,8 +14,8 @@
   "squash_merge_commit_message": "COMMIT_MESSAGES",
   "web_commit_signoff_required": false,
   "security_and_analysis": {
-    "dependabot_security_updates": { "status": "disabled" },
-    "secret_scanning": { "status": "disabled" },
-    "secret_scanning_push_protection": { "status": "disabled" }
+    "dependabot_security_updates": { "status": "enabled" },
+    "secret_scanning": { "status": "enabled" },
+    "secret_scanning_push_protection": { "status": "enabled" }
   }
 }
