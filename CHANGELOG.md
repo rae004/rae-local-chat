@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/rae004/rae-local-chat/compare/v0.4.1...v0.4.2) (2026-11-15)
+
+
+### Bug Fixes
+
+* **api:** surface Ollama errors via an explicit detail, never str(exception) ([#58](https://github.com/rae004/rae-local-chat/issues/58)) ([61ab13d](https://github.com/rae004/rae-local-chat/commit/61ab13d5868459f0511896f1ebb736ecc1209579))
+
 ## [0.4.1](https://github.com/rae004/rae-local-chat/compare/v0.4.0...v0.4.1) (2026-11-15)
 
 
