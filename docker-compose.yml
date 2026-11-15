@@ -29,7 +29,8 @@ services:
       # is added automatically when GITHUB_PERSONAL_ACCESS_TOKEN is set.
       MCP_SERVERS: >-
         [{"name":"filesystem","url":"http://mcp-filesystem:8000/mcp"},
-         {"name":"memory","url":"http://mcp-memory:8000/mcp"}]
+         {"name":"memory","url":"http://mcp-memory:8000/mcp"},
+         {"name":"shell","url":"http://mcp-shell:8000/mcp"}]
       GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_PERSONAL_ACCESS_TOKEN:-}
     extra_hosts:
       - "workhorse:${WORKHORSE_IP:?set WORKHORSE_IP in .env (LAN IP of the Ollama box)}"
@@ -43,6 +44,8 @@ services:
       mcp-filesystem:
         condition: service_started
       mcp-memory:
+        condition: service_started
+      mcp-shell:
         condition: service_started
 
   # --- MCP servers -----------------------------------------------------------
@@ -65,6 +68,21 @@ services:
       MEMORY_FILE_PATH: /data/memory.jsonl
     volumes:
       - mcpmemory:/data
+
+  # Built in-tree: allowlisted read-only commands, every call needs approval in the UI.
+  mcp-shell:
+    build:
+      context: .
+      dockerfile: mcp-servers/shell/Dockerfile
+    volumes:
+      - ${MCP_WORKSPACE:-.}:/workspace:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 64
+    mem_limit: 256m
 
   frontend:
     build:
