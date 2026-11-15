@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     tools_enabled: bool = True
     tool_result_max_chars: int = 16_000
     agent_max_rounds: int = 10
+    # Seconds a write/exec tool call waits for the user's click before counting as denied.
+    tool_approval_timeout: float = 300.0
 
     def all_mcp_servers(self) -> list[McpServerConfig]:
         servers = list(self.mcp_servers)

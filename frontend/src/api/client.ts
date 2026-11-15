@@ -39,6 +39,15 @@ export const api = {
   listMessages: (chatId: string) => request<Message[]>(`/chats/${chatId}/messages`),
   listModels: () => request<ModelInfo[]>('/models'),
   listTools: () => request<ToolsInfo>('/tools'),
+  /** Approve or deny a tool call the stream is waiting on. */
+  decideToolCall: async (chatId: string, callId: string, approved: boolean): Promise<void> => {
+    const res = await fetch(`${API_URL}/chats/${chatId}/tool-calls/${callId}/decision`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approved }),
+    })
+    if (!res.ok) throw new ApiError(res.status, await res.text())
+  },
 
   /** Opens the SSE stream; the caller consumes `res.body` with `parseSSE`. */
   streamMessage: async (

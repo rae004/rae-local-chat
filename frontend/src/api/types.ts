@@ -8,12 +8,23 @@ export interface Chat {
 }
 
 /** A tool invocation the model requested; stored on the assistant row and sent as SSE `tool_call`. */
+export type ToolCallStatus = 'auto' | 'pending'
+
 export interface ToolCall {
   id: string
   name: string
   server: string
   arguments: Record<string, unknown>
   read_only: boolean
+  /** auto = ran without asking; pending = waiting for the user's decision */
+  status?: ToolCallStatus
+}
+
+/** SSE `tool_decision`: how a pending call was resolved. */
+export interface ToolDecision {
+  id: string
+  approved: boolean
+  by: 'user' | 'timeout'
 }
 
 /** SSE `tool_result`: what the tool returned for `id`. */
@@ -37,6 +48,8 @@ export interface Message {
   tool_call_id?: string | null
   tool_name?: string | null
   tool_is_error?: boolean | null
+  /** null = ran without asking; true/false = the user's decision */
+  tool_approved?: boolean | null
 }
 
 export interface ModelInfo {

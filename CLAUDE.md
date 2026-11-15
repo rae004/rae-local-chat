@@ -71,7 +71,8 @@ See `package.json` scripts: `pnpm dev | down | migrate | migration | lint | type
 
 - **A** scaffold + echo endpoint ✅ · **B** SSE streaming ✅ · **C** history + sidebar ✅
   · **D** polish: theme toggle, model selector, markdown ✅
-- **E** tool use via MCP, three PRs: **E1** registry + loop + read-only tools + tool cards
-  · **E2** approve/deny flow for write/exec tools (pending registry, decision endpoint,
-  buttons on the card) · **E3** in-tree sandboxed shell server `mcp-servers/shell/`.
+- **E** tool use via MCP, three PRs: **E1** registry + loop + read-only tools + tool cards ✅
+  · **E2** approve/deny flow for write/exec tools ✅ (`services/approvals.py` in-process
+  registry, `POST /chats/{id}/tool-calls/{call_id}/decision`, 5-min timeout = deny; the
+  API must run as one process) · **E3** in-tree sandboxed shell server `mcp-servers/shell/`.
 - App display name is **Rae Bot**; repo stays `rae-local-chat`.

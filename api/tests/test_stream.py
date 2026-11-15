@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from collections.abc import Iterator
@@ -6,8 +7,9 @@ from typing import Any
 import pytest
 from httpx import AsyncClient
 
-from rae_api.deps import get_ollama, get_registry
+from rae_api.deps import get_approvals, get_ollama, get_registry
 from rae_api.main import app
+from rae_api.services.approvals import Approvals
 from tests.fakes import FakeOllama, FakeRegistry
 
 
@@ -204,9 +206,9 @@ async def test_tool_round_is_streamed_and_persisted(
         assert [m["role"] for m in history] == ["user", "assistant", "tool"]
         assert history[1]["tool_calls"][0]["function"]["name"] == "fs__read"
         assert history[2] == {"role": "tool", "tool_name": "fs__read", "content": "buy milk\n"}
-        # Only read-only tools were offered.
+        # Every tool is offered; writes park for approval (see below).
         offered = fake.calls[0][2] or []
-        assert [t["function"]["name"] for t in offered] == ["fs__read"]
+        assert sorted(t["function"]["name"] for t in offered) == ["fs__read", "fs__write"]
 
         rows = (await client.get(f"/chats/{chat_id}/messages")).json()
         assert [m["role"] for m in rows] == ["user", "assistant", "tool", "assistant"]
@@ -237,19 +239,88 @@ async def test_tools_can_be_disabled_per_message(
         app.dependency_overrides.pop(get_ollama, None)
 
 
-async def test_write_tool_is_refused_until_approval_flow_exists(
-    client: AsyncClient, registry: FakeRegistry
+@pytest.fixture
+def approvals() -> Iterator[Approvals]:
+    reg = Approvals()
+    app.dependency_overrides[get_approvals] = lambda: reg
+    yield reg
+    app.dependency_overrides.pop(get_approvals, None)
+
+
+async def _decide_when_pending(approvals: Approvals, approved: bool) -> None:
+    """Stand-in for the user's click: wait for the stream to park, then decide."""
+    for _ in range(200):
+        pending = list(approvals._pending)  # noqa: SLF001 — test peeks at the registry
+        if pending:
+            assert approvals.decide(pending[0], approved)
+            return
+        await asyncio.sleep(0.01)
+    raise AssertionError("no tool call became pending")
+
+
+@pytest.mark.parametrize("approved", [True, False])
+async def test_write_tool_waits_for_decision(
+    client: AsyncClient, registry: FakeRegistry, approvals: Approvals, approved: bool
 ) -> None:
     fake = FakeOllama([FakeOllama.call("fs__write", {"path": "x", "content": "y"})], ["ok"])
     app.dependency_overrides[get_ollama] = lambda: fake
     try:
         chat_id = await _new_chat(client)
+        # ASGITransport buffers the whole response, so the "click" runs alongside it.
+        clicker = asyncio.create_task(_decide_when_pending(approvals, approved))
         r = await client.post(f"/chats/{chat_id}/stream", json={"content": "write it"})
-        results = [d for e, d in parse_sse(r.text) if e == "tool_result"]
-        assert results[0]["is_error"] and "approval" in str(results[0]["content"])
-        assert registry.calls == []
+        await clicker
+        events = parse_sse(r.text)
+        kinds = [e for e, _ in events]
+        assert kinds[:5] == ["user", "message", "tool_call", "tool_decision", "tool_result"]
+        call = events[2][1]
+        assert call["status"] == "pending" and call["read_only"] is False
+        assert events[3][1] == {"id": call["id"], "approved": approved, "by": "user"}
+        result = events[4][1]
+        assert result["is_error"] is (not approved)
+        if approved:
+            assert registry.calls == [("fs__write", {"path": "x", "content": "y"})]
+        else:
+            assert registry.calls == [] and "denied" in str(result["content"])
+        rows = (await client.get(f"/chats/{chat_id}/messages")).json()
+        tool_row = next(m for m in rows if m["role"] == "tool")
+        assert tool_row["tool_approved"] is approved
+        # Both tool kinds are offered to the model now.
+        offered = fake.calls[0][2] or []
+        assert sorted(t["function"]["name"] for t in offered) == ["fs__read", "fs__write"]
     finally:
         app.dependency_overrides.pop(get_ollama, None)
+
+
+async def test_read_only_tool_does_not_ask(
+    client: AsyncClient, registry: FakeRegistry, approvals: Approvals
+) -> None:
+    fake = FakeOllama([FakeOllama.call("fs__read", {"path": "notes.txt"})], ["ok"])
+    app.dependency_overrides[get_ollama] = lambda: fake
+    try:
+        chat_id = await _new_chat(client)
+        r = await client.post(f"/chats/{chat_id}/stream", json={"content": "read"})
+        events = parse_sse(r.text)
+        assert "tool_decision" not in [e for e, _ in events]
+        assert next(d for e, d in events if e == "tool_call")["status"] == "auto"
+        rows = (await client.get(f"/chats/{chat_id}/messages")).json()
+        assert next(m for m in rows if m["role"] == "tool")["tool_approved"] is None
+    finally:
+        app.dependency_overrides.pop(get_ollama, None)
+
+
+async def test_decision_endpoint(client: AsyncClient, approvals: Approvals) -> None:
+    chat_id = await _new_chat(client)
+    r = await client.post(f"/chats/{chat_id}/tool-calls/nope/decision", json={"approved": True})
+    assert r.status_code == 404
+
+    approvals.register("abc123")
+    r = await client.post(f"/chats/{chat_id}/tool-calls/abc123/decision", json={"approved": False})
+    assert r.status_code == 204
+    assert await approvals.wait("abc123", 1) is False
+    # Deciding twice is a 404: the call is no longer pending.
+    r = await client.post(f"/chats/{chat_id}/tool-calls/abc123/decision", json={"approved": True})
+    assert r.status_code == 404
 
 
 async def test_list_tools(client: AsyncClient, registry: FakeRegistry) -> None:

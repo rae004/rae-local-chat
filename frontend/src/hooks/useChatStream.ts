@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api, type StreamOptions } from '../api/client'
 import { parseSSE } from '../api/sse'
-import type { Message, ToolResult } from '../api/types'
+import type { Message, ToolCall, ToolDecision, ToolResult } from '../api/types'
 import { chatsKey } from './useChats'
 import { messagesKey } from './useMessages'
 
@@ -15,6 +15,10 @@ export interface ChatStream {
   error: string | null
   /** Results for this turn's tool calls, by call id, before their rows are persisted. */
   toolResults: Record<string, ToolResult>
+  /** Call ids currently waiting for the user's Approve/Deny. */
+  pendingCalls: Record<string, ToolCall>
+  /** Approve or deny a pending call. */
+  decide: (callId: string, approved: boolean) => Promise<void>
 }
 
 const DEFAULTS: StreamOptions = { model: null, tools: true }
@@ -31,6 +35,7 @@ export function useChatStream(chatId: string): ChatStream {
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [toolResults, setToolResults] = useState<Record<string, ToolResult>>({})
+  const [pendingCalls, setPendingCalls] = useState<Record<string, ToolCall>>({})
   const abortRef = useRef<AbortController | null>(null)
 
   const append = useCallback(
@@ -57,6 +62,7 @@ export function useChatStream(chatId: string): ChatStream {
       setPartial('')
       setError(null)
       setToolResults({})
+      setPendingCalls({})
       setIsStreaming(true)
       let text = ''
       try {
@@ -76,6 +82,16 @@ export function useChatStream(chatId: string): ChatStream {
               text += (JSON.parse(ev.data) as { content: string }).content
               setPartial(text)
               break
+            case 'tool_call': {
+              const c = JSON.parse(ev.data) as ToolCall
+              if (c.status === 'pending') setPendingCalls((prev) => ({ ...prev, [c.id]: c }))
+              break
+            }
+            case 'tool_decision': {
+              const d = JSON.parse(ev.data) as ToolDecision
+              setPendingCalls(({ [d.id]: _done, ...rest }) => rest)
+              break
+            }
             case 'tool_result': {
               const r = JSON.parse(ev.data) as ToolResult
               setToolResults((prev) => ({ ...prev, [r.id]: r }))
@@ -106,5 +122,16 @@ export function useChatStream(chatId: string): ChatStream {
     [chatId, append, qc],
   )
 
-  return { send, stop, partial, isStreaming, error, toolResults }
+  const decide = useCallback(
+    async (callId: string, approved: boolean) => {
+      try {
+        await api.decideToolCall(chatId, callId, approved)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+      }
+    },
+    [chatId],
+  )
+
+  return { send, stop, partial, isStreaming, error, toolResults, pendingCalls, decide }
 }

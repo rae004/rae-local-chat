@@ -6,8 +6,9 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from rae_api.deps import get_registry
+from rae_api.deps import get_approvals, get_registry
 from rae_api.main import app
+from rae_api.services.approvals import Approvals
 from rae_api.services.mcp import McpRegistry
 from rae_db import Base, get_session, get_session_factory
 from rae_db.settings import get_db_settings
@@ -63,6 +64,7 @@ async def client(
     app.dependency_overrides[get_session_factory] = lambda: session_factory
     # Lifespan doesn't run under ASGITransport; default to "no MCP servers".
     app.dependency_overrides.setdefault(get_registry, lambda: McpRegistry([]))
+    app.dependency_overrides.setdefault(get_approvals, lambda: Approvals())
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()

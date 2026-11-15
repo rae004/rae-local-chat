@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-import type { Message, ToolResult } from '../api/types'
+import type { Message, ToolCall, ToolResult } from '../api/types'
 import { Markdown } from './Markdown'
 import { ToolCallCard } from './ToolCallCard'
 
@@ -11,6 +11,9 @@ interface Props {
   isStreaming?: boolean
   /** Tool results already streamed for this turn but not yet persisted. */
   toolResults?: Record<string, ToolResult>
+  /** Calls waiting for Approve/Deny right now. */
+  pendingCalls?: Record<string, ToolCall>
+  onDecide?: (callId: string, approved: boolean) => void
 }
 
 export function MessageList({
@@ -18,6 +21,8 @@ export function MessageList({
   partial = '',
   isStreaming = false,
   toolResults = {},
+  pendingCalls = {},
+  onDecide,
 }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -34,6 +39,7 @@ export function MessageList({
 
   // Tool rows fold into the card of the call they answer.
   const results = new Map<string, ToolResult>(Object.entries(toolResults))
+  const decisions = new Map<string, boolean | null>()
   for (const m of messages) {
     if (m.role === 'tool' && m.tool_call_id) {
       results.set(m.tool_call_id, {
@@ -42,6 +48,7 @@ export function MessageList({
         content: m.content,
         is_error: Boolean(m.tool_is_error),
       })
+      decisions.set(m.tool_call_id, m.tool_approved ?? null)
     }
   }
 
@@ -64,7 +71,10 @@ export function MessageList({
                     key={c.id}
                     call={c}
                     result={results.get(c.id) ?? null}
+                    approved={decisions.get(c.id) ?? null}
                     running={isStreaming}
+                    pending={c.id in pendingCalls}
+                    onDecide={onDecide ? (ok) => onDecide(c.id, ok) : undefined}
                   />
                 ))}
               </div>

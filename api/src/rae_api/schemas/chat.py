@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -32,6 +32,9 @@ class MessageCreate(BaseModel):
     tools: bool = True
 
 
+ToolCallStatus = Literal["auto", "pending"]
+
+
 class ToolCallRead(BaseModel):
     """One tool invocation requested by the model (SSE `tool_call`, and persisted)."""
 
@@ -40,6 +43,21 @@ class ToolCallRead(BaseModel):
     server: str
     arguments: dict[str, Any]
     read_only: bool
+    # auto = running now (read-only); pending = waiting for the user's decision
+    status: ToolCallStatus = "auto"
+
+
+class ToolDecisionRead(BaseModel):
+    """SSE `tool_decision`: how a pending call was resolved."""
+
+    id: str
+    approved: bool
+    # "user" | "timeout" | "disconnected"
+    by: str
+
+
+class ToolDecision(BaseModel):
+    approved: bool
 
 
 class ToolResultRead(BaseModel):
@@ -66,6 +84,7 @@ class MessageRead(BaseModel):
     tool_call_id: str | None = None
     tool_name: str | None = None
     tool_is_error: bool | None = None
+    tool_approved: bool | None = None
 
 
 class ModelRead(BaseModel):
