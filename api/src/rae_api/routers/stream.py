@@ -118,6 +118,7 @@ async def _stream(
     tools_enabled: bool,
     approval_timeout: float,
     max_rounds: int,
+    system_prompt: str,
 ) -> AsyncIterator[str]:
     # Own sessions: request-scoped dependencies are torn down before a
     # StreamingResponse body runs.
@@ -151,6 +152,7 @@ async def _stream(
             approvals=approvals,
             approval_timeout=approval_timeout,
             max_rounds=max_rounds,
+            system_prompt=system_prompt,
         )
         async for ev in events:
             match ev:
@@ -250,6 +252,7 @@ async def stream_message(
             tools_enabled=settings.tools_enabled,
             approval_timeout=settings.tool_approval_timeout,
             max_rounds=settings.agent_max_rounds,
+            system_prompt=settings.system_prompt,
         ),
         media_type="text/event-stream",
         headers=SSE_HEADERS,

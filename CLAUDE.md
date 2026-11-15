@@ -37,9 +37,15 @@ is dev.
    `readOnlyHint` annotation; a tool without annotations is treated as a write. Tool names
    reach the model as `<server>__<tool>`.
 6. **qwen2.5-coder doesn't emit structured `tool_calls` on Ollama** (both sizes, streaming
-   or not): it writes bare `{"name", "arguments"}` JSON as text. `services/toolcalls.py`
-   holds back tokens that look like that and parses them; `tool_calls` from Ollama are
-   still honoured when a model does produce them. Don't "fix" this by prompt alone.
+   or not): it writes bare `{"name", "arguments"}` JSON as text, often after a sentence of
+   prose. `services/toolcalls.py` streams prose, holds tokens from any line that starts a
+   JSON payload, and extracts calls from anywhere in the finished text; `tool_calls` from
+   Ollama are still honoured when a model does produce them. Don't "fix" this by prompt
+   alone.
+7. **Every conversation starts with a system prompt** (`SYSTEM_PROMPT`, see settings) plus
+   tool guidance when tools are offered: fewest calls, no memory writes unless asked, tool
+   call = only the call. Without it qwen 32b answers "list the directory" with four
+   filesystem calls and a knowledge-graph write.
 
 ## House rules
 

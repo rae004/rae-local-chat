@@ -16,6 +16,48 @@ async def test_prose_streams_token_by_token() -> None:
     assert events == [agent.Token("Hel"), agent.Token("lo"), agent.Finished("Hello")]
 
 
+async def test_system_prompt_and_tool_guidance_lead_the_history() -> None:
+    fake = FakeOllama(["ok"])
+    await _run(fake, FakeRegistry(), system_prompt="Be terse.")
+    first = fake.calls[0][1][0]
+    assert first["role"] == "system"
+    assert first["content"].startswith("Be terse.") and "fewest calls" in first["content"]
+    # Tools off: guidance is left out.
+    fake = FakeOllama(["ok"])
+    await _run(fake, FakeRegistry(), system_prompt="Be terse.", tools_enabled=False)
+    assert fake.calls[0][1][0] == {"role": "system", "content": "Be terse."}
+    # No prompt configured: no system message at all.
+    fake = FakeOllama(["ok"])
+    await _run(fake, FakeRegistry(), tools_enabled=False)
+    assert fake.calls[0][1] == []
+
+
+async def test_tool_call_after_prose_is_executed() -> None:
+    call = json.dumps({"name": "fs__read", "arguments": {"path": "notes.txt"}})
+    fake = FakeOllama(["Sure, ", "reading it now.\n", call[:12], call[12:]], ["buy milk"])
+    registry = FakeRegistry()
+    events = await _run(fake, registry)
+    kinds = [type(e).__name__ for e in events]
+    # Prose streamed live; the JSON line was held back and became the call.
+    expected = ["Token", "Token", "AssistantTurn", "ToolCall", "ToolResult", "Token", "Finished"]
+    assert kinds == expected
+    assert events[0] == agent.Token("Sure, ") and events[1] == agent.Token("reading it now.\n")
+    turn = events[2]
+    assert isinstance(turn, agent.AssistantTurn)
+    assert turn.content == "Sure, reading it now." and turn.tool_calls[0].name == "fs__read"
+    assert registry.calls == [("fs__read", {"path": "notes.txt"})]
+
+
+async def test_json_line_after_prose_that_is_not_a_call_is_released() -> None:
+    fake = FakeOllama(["Example:\n", '{"path": "x"}', "\nDone."])
+    events = await _run(fake, FakeRegistry())
+    assert events == [
+        agent.Token("Example:\n"),
+        agent.Token('{"path": "x"}\nDone.'),
+        agent.Finished('Example:\n{"path": "x"}\nDone.'),
+    ]
+
+
 async def test_json_looking_text_is_held_then_released_if_not_a_call() -> None:
     events = await _run(FakeOllama(["{", '"a": 1}', " done"]), FakeRegistry())
     # Nothing leaked token-by-token; the whole text arrived once at the end.

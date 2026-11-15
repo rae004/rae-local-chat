@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     github_personal_access_token: str | None = None
     github_mcp_url: str = "https://api.githubcopilot.com/mcp/"
     tools_enabled: bool = True
+    # First message of every conversation. Tool guidance is appended when tools are offered.
+    system_prompt: str = (
+        "You are Rae Bot, a local coding assistant. Be concise and direct; answer the "
+        "question that was asked."
+    )
     tool_result_max_chars: int = 16_000
     agent_max_rounds: int = 10
     # Seconds a write/exec tool call waits for the user's click before counting as denied.
