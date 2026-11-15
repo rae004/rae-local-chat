@@ -9,10 +9,12 @@ Events (all `data` is JSON):
   tool_result   -> ToolResultRead   what the tool returned (or why it didn't run)
   message     -> MessageRead      an intermediate persisted row (assistant w/ tool_calls, tool)
   done        -> MessageRead      the persisted final assistant message
-  error       -> {"detail": str}  Ollama failed; everything persisted so far stays
+  error       -> {"detail": str}  Ollama's message, or a generic one for anything else
+                                  (details go to the log); everything persisted so far stays
 """
 
 import json
+import logging
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any
@@ -46,6 +48,8 @@ from rae_api.services.ollama import OllamaClient, OllamaError
 from rae_db import Chat, Message, Role
 
 router = APIRouter(prefix="/chats", tags=["stream"])
+log = logging.getLogger(__name__)
+INTERNAL_ERROR = "Something went wrong while generating the reply; see the API log."
 
 TITLE_MAX = 60
 
@@ -200,8 +204,9 @@ async def _stream(
                     yield sse("done", MessageRead.model_validate(row))
     except OllamaError as e:
         yield sse("error", {"detail": str(e)})
-    except Exception as e:  # noqa: BLE001 — surface anything else to the client, then persist
-        yield sse("error", {"detail": f"{type(e).__name__}: {e}"})
+    except Exception:  # noqa: BLE001 — log the details, tell the client something generic
+        log.exception("stream failed for chat %s", chat_id)
+        yield sse("error", {"detail": INTERNAL_ERROR})
     finally:
         # Error, or the client went away mid-stream (CancelledError): keep what
         # we got. The request's cancel scope may already be cancelled, so shield.

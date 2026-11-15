@@ -64,7 +64,7 @@ async def client(
     app.dependency_overrides[get_session_factory] = lambda: session_factory
     # Lifespan doesn't run under ASGITransport; default to "no MCP servers".
     app.dependency_overrides.setdefault(get_registry, lambda: McpRegistry([]))
-    app.dependency_overrides.setdefault(get_approvals, lambda: Approvals())
+    app.dependency_overrides.setdefault(get_approvals, Approvals)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()

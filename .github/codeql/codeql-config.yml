@@ -1,0 +1,7 @@
+name: rae-local-chat
+queries:
+  - uses: security-and-quality
+paths-ignore:
+  # Alembic reads `revision`, `down_revision`, `branch_labels`, `depends_on` as module
+  # attributes; CodeQL sees four unused globals per migration. Generated DDL, nothing to scan.
+  - db/migrations/versions

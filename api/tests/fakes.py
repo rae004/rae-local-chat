@@ -13,9 +13,15 @@ Turn = list[str | ToolCallRequest]
 class FakeOllama:
     """Scripted turns: each is a list of text tokens and/or structured tool calls."""
 
-    def __init__(self, *turns: Turn, fail_after: int | None = None) -> None:
+    def __init__(
+        self,
+        *turns: Turn,
+        fail_after: int | None = None,
+        error: Exception | None = None,
+    ) -> None:
         self.turns = list(turns) or [[]]
         self.fail_after = fail_after
+        self.error = error or OllamaError("model exploded")
         self.calls: list[tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]] = []
 
     @staticmethod
@@ -32,7 +38,7 @@ class FakeOllama:
         turn = self.turns[min(len(self.calls) - 1, len(self.turns) - 1)]
         for i, item in enumerate(turn):
             if self.fail_after is not None and i == self.fail_after:
-                raise OllamaError("model exploded")
+                raise self.error
             if isinstance(item, ToolCallRequest):
                 yield ChatChunk(content="", done=False, model=model, tool_calls=(item,))
             else:

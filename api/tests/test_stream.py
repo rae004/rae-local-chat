@@ -87,6 +87,19 @@ async def test_stream_error_keeps_user_message(client: AsyncClient) -> None:
         app.dependency_overrides.pop(get_ollama, None)
 
 
+async def test_unexpected_error_is_not_leaked_to_the_client(client: AsyncClient) -> None:
+    fake = FakeOllama(["a", "b"], fail_after=1, error=RuntimeError("secret internals /srv/x"))
+    app.dependency_overrides[get_ollama] = lambda: fake
+    try:
+        chat_id = await _new_chat(client)
+        r = await client.post(f"/chats/{chat_id}/stream", json={"content": "boom"})
+        detail = str(parse_sse(r.text)[-1][1]["detail"])
+        assert "RuntimeError" not in detail and "/srv/x" not in detail
+        assert "see the API log" in detail
+    finally:
+        app.dependency_overrides.pop(get_ollama, None)
+
+
 async def test_stream_unknown_chat_404(client: AsyncClient, fake_ollama: FakeOllama) -> None:
     r = await client.post(f"/chats/{uuid.uuid4()}/stream", json={"content": "x"})
     assert r.status_code == 404
@@ -138,7 +151,7 @@ async def test_stream_uses_requested_model(client: AsyncClient, fake_ollama: Fak
     assert fake_ollama.calls[0][0] == "starcoder2:7b"
     assert parse_sse(r.text)[-1][1]["model"] == "starcoder2:7b"
 
-    r = await client.post(f"/chats/{chat_id}/stream", json={"content": "again"})
+    await client.post(f"/chats/{chat_id}/stream", json={"content": "again"})
     assert fake_ollama.calls[1][0] == "qwen2.5-coder:latest"  # settings default
 
 
@@ -254,13 +267,13 @@ def approvals() -> Iterator[Approvals]:
     app.dependency_overrides.pop(get_approvals, None)
 
 
-async def _decide_when_pending(approvals: Approvals, approved: bool) -> None:
-    """Stand-in for the user's click: wait for the stream to park, then decide."""
+async def _decide_when_pending(approvals: Approvals, approved: bool) -> str:
+    """Stand-in for the user's click: wait for the stream to park, decide, return the id."""
     for _ in range(200):
         pending = list(approvals._pending)  # noqa: SLF001 — test peeks at the registry
         if pending:
             assert approvals.decide(pending[0], approved)
-            return
+            return pending[0]
         await asyncio.sleep(0.01)
     raise AssertionError("no tool call became pending")
 
@@ -276,11 +289,12 @@ async def test_write_tool_waits_for_decision(
         # ASGITransport buffers the whole response, so the "click" runs alongside it.
         clicker = asyncio.create_task(_decide_when_pending(approvals, approved))
         r = await client.post(f"/chats/{chat_id}/stream", json={"content": "write it"})
-        await clicker
+        decided_id = await clicker
         events = parse_sse(r.text)
         kinds = [e for e, _ in events]
         assert kinds[:5] == ["user", "message", "tool_call", "tool_decision", "tool_result"]
         call = events[2][1]
+        assert call["id"] == decided_id
         assert call["status"] == "pending" and call["read_only"] is False
         assert events[3][1] == {"id": call["id"], "approved": approved, "by": "user"}
         result = events[4][1]

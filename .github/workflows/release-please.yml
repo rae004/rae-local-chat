@@ -27,6 +27,10 @@ jobs:
       # Regen the lockfile on the release PR's branch and push it as the bot.
       # (pnpm-lock.yaml does not record the package's own version — no node
       # step needed.) Skipped when release-please didn't touch a PR.
+      # CodeQL flags this as "checkout of untrusted code": it isn't. This workflow
+      # runs on push to main only (never on pull_request), and the ref is the branch
+      # release-please itself created in this repo a step earlier. No third party
+      # can influence it. Alert dismissed as a false positive with this reasoning.
       - name: Checkout release PR branch
         if: ${{ steps.release.outputs.prs_created == 'true' }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
