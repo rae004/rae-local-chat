@@ -1,8 +1,8 @@
 {
   "name": "rae-local-chat",
   "private": true,
-  "version": "0.2.0",
-  "description": "Local AI chat UI over Ollama \u2014 React/Vite SPA + FastAPI + Postgres",
+  "version": "0.3.0",
+  "description": "Local AI chat UI over Ollama — React/Vite SPA + FastAPI + Postgres",
   "packageManager": "pnpm@11.3.0",
   "engines": {
     "node": ">=24.22.1"
