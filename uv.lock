@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.14"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -11,6 +11,7 @@ members = [
     "rae-api",
     "rae-db",
     "rae-local-chat",
+    "rae-mcp-shell",
 ]
 
 [[package]]
@@ -1158,6 +1159,17 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=1.4.0" },
     { name = "ruff", specifier = ">=0.17.2" },
 ]
+
+[[package]]
+name = "rae-mcp-shell"
+version = "0.3.1"
+source = { editable = "mcp-servers/shell" }
+dependencies = [
+    { name = "mcp" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "mcp", specifier = ">=2.2,<3" }]
 
 [[package]]
 name = "referencing"

@@ -39,7 +39,7 @@ updates:
 
   # Base images in the Dockerfiles.
   - package-ecosystem: "docker"
-    directories: ["/api", "/frontend"]
+    directories: ["/api", "/frontend", "/mcp-servers/shell"]
     schedule:
       interval: "weekly"
       day: "monday"

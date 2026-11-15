@@ -74,5 +74,8 @@ See `package.json` scripts: `pnpm dev | down | migrate | migration | lint | type
 - **E** tool use via MCP, three PRs: **E1** registry + loop + read-only tools + tool cards ✅
   · **E2** approve/deny flow for write/exec tools ✅ (`services/approvals.py` in-process
   registry, `POST /chats/{id}/tool-calls/{call_id}/decision`, 5-min timeout = deny; the
-  API must run as one process) · **E3** in-tree sandboxed shell server `mcp-servers/shell/`.
+  API must run as one process) · **E3** in-tree sandboxed shell server `mcp-servers/shell/` ✅
+  (uv workspace member `rae-mcp-shell`; allowlist + cwd/path confinement + timeout + output
+  cap in code, read-only mount + read-only rootfs + cap_drop in compose; tool is not
+  read-only so every call asks).
 - App display name is **Rae Bot**; repo stays `rae-local-chat`.

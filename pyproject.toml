@@ -5,7 +5,7 @@ description = "Workspace root — see api/ and db/"
 requires-python = ">=3.14"
 
 [tool.uv.workspace]
-members = ["api", "db"]
+members = ["api", "db", "mcp-servers/shell"]
 
 [tool.uv.sources]
 rae-db = { workspace = true }
@@ -13,7 +13,7 @@ rae-db = { workspace = true }
 [tool.ruff]
 line-length = 100
 target-version = "py314"
-src = ["api", "api/src", "db/src"]
+src = ["api", "api/src", "db/src", "mcp-servers/shell", "mcp-servers/shell/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
@@ -22,7 +22,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
 python_version = "3.14"
 strict = true
 plugins = ["pydantic.mypy"]
-mypy_path = ["api/src", "db/src"]
+mypy_path = ["api/src", "db/src", "mcp-servers/shell/src"]
 
 [dependency-groups]
 dev = [

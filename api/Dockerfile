@@ -8,11 +8,12 @@ WORKDIR /app
 COPY pyproject.toml uv.lock .python-version ./
 COPY api/pyproject.toml api/
 COPY db/pyproject.toml db/
-RUN uv sync --frozen --no-dev --all-packages --no-install-workspace
+COPY mcp-servers/shell/pyproject.toml mcp-servers/shell/
+RUN uv sync --frozen --no-dev --package rae-api --no-install-workspace
 
 COPY api/ api/
 COPY db/ db/
-RUN uv sync --frozen --no-dev --all-packages
+RUN uv sync --frozen --no-dev --package rae-api
 
 EXPOSE 8000
 CMD ["sh", "-c", "uv run --no-sync alembic -c db/alembic.ini upgrade head && uv run --no-sync uvicorn rae_api.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir api/src --reload-dir db/src"]
