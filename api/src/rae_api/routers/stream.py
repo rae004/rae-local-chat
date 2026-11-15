@@ -203,7 +203,7 @@ async def _stream(
                     row = await _persist(factory, _assistant(chat_id, content, model))
                     yield sse("done", MessageRead.model_validate(row))
     except OllamaError as e:
-        yield sse("error", {"detail": str(e)})
+        yield sse("error", {"detail": e.detail})
     except Exception:  # noqa: BLE001 — log the details, tell the client something generic
         # The id is a parsed UUID, but keep user input out of the message text anyway.
         log.exception("stream failed", extra={"chat_id": chat_id.hex})
