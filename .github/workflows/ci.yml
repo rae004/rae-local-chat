@@ -51,7 +51,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Typecheck (mypy)
-        run: uv run mypy api/src db/src api/tests
+        run: uv run mypy api/src db/src api/tests mcp-servers/shell/src mcp-servers/shell/tests
 
       - name: Migrate
         run: uv run alembic -c db/alembic.ini upgrade head
@@ -59,8 +59,11 @@ jobs:
       - name: Migrations match models
         run: uv run alembic -c db/alembic.ini check
 
-      - name: Tests
+      - name: Tests (api)
         run: uv run --package rae-api pytest api/tests -q
+
+      - name: Tests (mcp-shell)
+        run: uv run --package rae-mcp-shell pytest mcp-servers/shell/tests -q
 
   node:
     runs-on: ubuntu-latest
