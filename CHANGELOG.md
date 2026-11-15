@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/rae004/rae-local-chat/compare/v0.3.1...v0.4.0) (2026-11-15)
+
+
+### Features
+
+* **repo-settings:** optional labels.json target, synced from rae-local-agent ([#41](https://github.com/rae004/rae-local-chat/issues/41)) ([8159e11](https://github.com/rae004/rae-local-chat/commit/8159e11f2fcb1d9f6fef97b1e68785f7135dd61f))
+* sandboxed shell MCP server (E3) ([#40](https://github.com/rae004/rae-local-chat/issues/40)) ([39c4903](https://github.com/rae004/rae-local-chat/commit/39c4903c6f486c7b13ac33c11a78e8fab857aca8))
+
+
+### Bug Fixes
+
+* **api:** run tool calls written after prose, add a system prompt ([#42](https://github.com/rae004/rae-local-chat/issues/42)) ([4c9cd04](https://github.com/rae004/rae-local-chat/commit/4c9cd04b14a0048676b5f54037bf4c08e52cec95))
+* **compose:** filesystem MCP server writes files as the host user, not root ([#43](https://github.com/rae004/rae-local-chat/issues/43)) ([c8838d4](https://github.com/rae004/rae-local-chat/commit/c8838d40b3e5e3a1ccd70f7a24af6a2e1662fbfd))
+
 ## [0.3.1](https://github.com/rae004/rae-local-chat/compare/v0.3.0...v0.3.1) (2026-11-15)
 
 
