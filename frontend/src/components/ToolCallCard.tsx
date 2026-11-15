@@ -1,24 +1,37 @@
 import type { ToolCall, ToolResult } from '../api/types'
 
-export type ToolCallStatus = 'running' | 'done' | 'error' | 'pending'
+export type CardStatus = 'running' | 'done' | 'denied' | 'error' | 'pending' | 'stale'
 
 interface Props {
   call: ToolCall
   result?: ToolResult | null
+  /** null = auto-ran; true/false = the user's decision (from the persisted row). */
+  approved?: boolean | null
   /** No result yet and the turn is still streaming. */
   running?: boolean
+  /** Waiting for the user right now; shows Approve/Deny. */
+  pending?: boolean
+  onDecide?: (approved: boolean) => void
 }
 
-/** One tool invocation: who/what, arguments, and the (collapsible) result. */
-export function ToolCallCard({ call, result = null, running = false }: Props) {
-  const status: ToolCallStatus = result ? (result.is_error ? 'error' : 'done') : running ? 'running' : 'pending'
+/** One tool invocation: who/what, arguments, Approve/Deny while pending, and the result. */
+export function ToolCallCard({
+  call,
+  result = null,
+  approved = null,
+  running = false,
+  pending = false,
+  onDecide,
+}: Props) {
+  const status = cardStatus({ result, approved, running, pending })
   const [server, tool] = splitName(call)
 
   return (
     <details
       className={`collapse collapse-arrow my-1 border bg-base-200 text-sm ${
-        status === 'error' ? 'border-error/60' : 'border-base-300'
+        status === 'error' ? 'border-error/60' : status === 'pending' ? 'border-warning/60' : 'border-base-300'
       }`}
+      open={pending || undefined}
       data-testid="tool-call"
     >
       <summary className="collapse-title flex min-h-0 items-center gap-2 py-2 pr-10">
@@ -31,6 +44,21 @@ export function ToolCallCard({ call, result = null, running = false }: Props) {
       </summary>
       <div className="collapse-content space-y-2">
         <Block label="arguments">{JSON.stringify(call.arguments, null, 2)}</Block>
+        {pending ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs opacity-70">This tool modifies state. Run it?</span>
+            <button
+              type="button"
+              className="btn btn-success btn-xs"
+              onClick={() => onDecide?.(true)}
+            >
+              Approve
+            </button>
+            <button type="button" className="btn btn-error btn-xs" onClick={() => onDecide?.(false)}>
+              Deny
+            </button>
+          </div>
+        ) : null}
         {result ? (
           <Block label={result.is_error ? 'error' : 'result'} error={result.is_error}>
             {result.content || '(empty)'}
@@ -48,17 +76,44 @@ function splitName(call: ToolCall): [string, string] {
   return [call.server || '?', call.name]
 }
 
-function StatusBadge({ status, readOnly }: { status: ToolCallStatus; readOnly: boolean }) {
-  if (status === 'running') {
-    return <span className="loading loading-spinner loading-xs" aria-label="running" />
+function cardStatus({
+  result,
+  approved,
+  running,
+  pending,
+}: {
+  result: ToolResult | null
+  approved: boolean | null
+  running: boolean
+  pending: boolean
+}): CardStatus {
+  if (pending) return 'pending'
+  if (result) {
+    if (approved === false) return 'denied'
+    return result.is_error ? 'error' : 'done'
   }
-  if (status === 'error') return <span className="badge badge-error badge-xs">error</span>
-  if (status === 'pending') return <span className="badge badge-warning badge-xs">pending</span>
-  return (
-    <span className={`badge badge-xs ${readOnly ? 'badge-ghost' : 'badge-info'}`}>
-      {readOnly ? 'auto · read-only' : 'done'}
-    </span>
-  )
+  return running ? 'running' : 'stale'
+}
+
+function StatusBadge({ status, readOnly }: { status: CardStatus; readOnly: boolean }) {
+  switch (status) {
+    case 'running':
+      return <span className="loading loading-spinner loading-xs" aria-label="running" />
+    case 'pending':
+      return <span className="badge badge-warning badge-xs">needs approval</span>
+    case 'denied':
+      return <span className="badge badge-neutral badge-xs">denied</span>
+    case 'error':
+      return <span className="badge badge-error badge-xs">error</span>
+    case 'stale':
+      return <span className="badge badge-ghost badge-xs">no result</span>
+    case 'done':
+      return (
+        <span className={`badge badge-xs ${readOnly ? 'badge-ghost' : 'badge-info'}`}>
+          {readOnly ? 'auto · read-only' : 'approved'}
+        </span>
+      )
+  }
 }
 
 function Block({

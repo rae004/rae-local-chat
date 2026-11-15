@@ -38,6 +38,8 @@ export function ChatWindow({ chatId }: Props) {
           partial={stream.partial}
           isStreaming={stream.isStreaming}
           toolResults={stream.toolResults}
+          pendingCalls={stream.pendingCalls}
+          onDecide={(id, ok) => void stream.decide(id, ok)}
         />
       )}
       {stream.error ? (

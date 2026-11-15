@@ -118,6 +118,59 @@ describe('useChatStream', () => {
     expect(body).toEqual({ content: 'read notes', model: null, tools: false })
   })
 
+  it('tracks pending calls until a decision arrives and posts the user decision', async () => {
+    const user = msg('u1', 'user', 'write it')
+    const call = {
+      id: 'w1',
+      name: 'fs__write',
+      server: 'fs',
+      arguments: { path: 'x' },
+      read_only: false,
+      status: 'pending' as const,
+    }
+    const turn: Message = { ...msg('a1', 'assistant', ''), tool_calls: [call] }
+    // The stream stays open after `tool_call`; decide() is called while it's parked.
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const enc = new TextEncoder()
+    const body = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        controller.enqueue(enc.encode(ev('user', user) + ev('message', turn) + ev('tool_call', call)))
+        await gate
+        controller.enqueue(
+          enc.encode(
+            ev('tool_decision', { id: 'w1', approved: true, by: 'user' }) +
+              ev('done', msg('a2', 'assistant', 'written')),
+          ),
+        )
+        controller.close()
+      },
+    })
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(body, { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const { hook } = setup()
+
+    // Not wrapped in act(): the stream parks, and act() would hold back state
+    // updates until the promise settles.
+    const sending = hook.result.current.send('write it')
+    await waitFor(() => expect(hook.result.current.pendingCalls).toHaveProperty('w1'))
+
+    await act(() => hook.result.current.decide('w1', true))
+    expect(fetchSpy.mock.calls[1]![0]).toContain('/chats/c1/tool-calls/w1/decision')
+    expect(JSON.parse(String((fetchSpy.mock.calls[1]![1] as RequestInit).body))).toEqual({
+      approved: true,
+    })
+
+    await act(async () => {
+      release()
+      await sending
+    })
+    expect(hook.result.current.isStreaming).toBe(false)
+    expect(hook.result.current.pendingCalls).toEqual({})
+  })
+
   it('reports HTTP failures', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response('Chat not found', { status: 404 }),
