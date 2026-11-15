@@ -205,7 +205,8 @@ async def _stream(
     except OllamaError as e:
         yield sse("error", {"detail": str(e)})
     except Exception:  # noqa: BLE001 — log the details, tell the client something generic
-        log.exception("stream failed for chat %s", chat_id)
+        # The id is a parsed UUID, but keep user input out of the message text anyway.
+        log.exception("stream failed", extra={"chat_id": chat_id.hex})
         yield sse("error", {"detail": INTERNAL_ERROR})
     finally:
         # Error, or the client went away mid-stream (CancelledError): keep what
