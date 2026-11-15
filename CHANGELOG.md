@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/rae004/rae-local-chat/compare/v0.3.0...v0.3.1) (2026-11-15)
+
+
+### Styling
+
+* Fix white space wrapping so long chat names wrap and delete button is visable if needed. ([#37](https://github.com/rae004/rae-local-chat/issues/37)) ([000d90f](https://github.com/rae004/rae-local-chat/commit/000d90fdd27323614d0cfdbf39bef00e7439e453))
+
 ## [0.3.0](https://github.com/rae004/rae-local-chat/compare/v0.2.0...v0.3.0) (2026-11-15)
 
 
