@@ -1,5 +1,6 @@
 from mcp.types import (
     BlobResourceContents,
+    ContentBlock,
     EmbeddedResource,
     ImageContent,
     TextContent,
@@ -16,7 +17,7 @@ def test_text_blocks_join_with_newlines() -> None:
 
 def test_text_resource_passes_its_text_through() -> None:
     # GitHub's get_file_contents: a text block with a summary, then the file as a resource.
-    blocks = [
+    blocks: list[ContentBlock] = [
         TextContent(type="text", text="successfully downloaded text file"),
         EmbeddedResource(
             type="resource",
@@ -31,7 +32,7 @@ def test_text_resource_passes_its_text_through() -> None:
 
 
 def test_binary_resource_and_image_are_marked_not_dumped() -> None:
-    blocks = [
+    blocks: list[ContentBlock] = [
         EmbeddedResource(
             type="resource",
             resource=BlobResourceContents(

@@ -9,7 +9,7 @@ server restarts.
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -60,7 +60,7 @@ class ToolOutcome:
     is_error: bool
 
 
-def flatten_content(blocks: list[ContentBlock]) -> str:
+def flatten_content(blocks: Sequence[ContentBlock]) -> str:
     """Join a tool result's content blocks into the text the model sees.
 
     Text blocks and text resources (GitHub's `get_file_contents` returns the file
