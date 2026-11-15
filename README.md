@@ -51,3 +51,9 @@ Read-only tools run automatically and show up as collapsible cards in the chat. 
 modify state are refused until the approve/deny flow lands (Milestone E2). `GET /tools`
 lists the catalogue and per-server status; the **Tools** toggle in the composer turns tool
 use off per message. Only models whose Ollama `capabilities` include `tools` can use them.
+
+## Repo settings
+
+GitHub settings for this repo (merge options, Actions permissions, the `main` ruleset) are
+files in [`.github/repo/`](.github/repo/). `pnpm repo:diff` shows drift, `pnpm repo:apply`
+pushes the files. CI diffs on every PR that touches them.
