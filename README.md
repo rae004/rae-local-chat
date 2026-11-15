@@ -43,7 +43,7 @@ The model can call tools from MCP servers that run as compose services:
 
 | server | what | how |
 |---|---|---|
-| `filesystem` | read/search files under `MCP_WORKSPACE` (default: this repo) | `@modelcontextprotocol/server-filesystem` via supergateway |
+| `filesystem` | read/search/write files under `MCP_WORKSPACE` (default: this repo), runs as `MCP_UID:MCP_GID` so writes are owned by you | `@modelcontextprotocol/server-filesystem` via supergateway |
 | `memory` | knowledge-graph notes that persist across chats | `@modelcontextprotocol/server-memory` via supergateway |
 | `github` | repos, issues, PRs | GitHub's hosted server; set `GITHUB_PERSONAL_ACCESS_TOKEN` in `.env` |
 | `shell` | `ls cat head tail grep rg find wc git` inside the workspace, read-only mount, always asks | built in-tree: `mcp-servers/shell/` |
