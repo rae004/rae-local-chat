@@ -63,7 +63,7 @@ async def test_stream_sends_full_history_to_ollama(
     await client.post(f"/chats/{chat_id}/stream", json={"content": "second"})
 
     _, history, _ = fake_ollama.calls[1]
-    assert [m["role"] for m in history] == ["user", "assistant", "user"]
+    assert [m["role"] for m in history] == ["system", "user", "assistant", "user"]
     assert history[-1]["content"] == "second"
 
 
@@ -203,9 +203,9 @@ async def test_tool_round_is_streamed_and_persisted(
 
         # Round 2 saw the tool exchange in Ollama's own shape.
         _, history, _ = fake.calls[1]
-        assert [m["role"] for m in history] == ["user", "assistant", "tool"]
-        assert history[1]["tool_calls"][0]["function"]["name"] == "fs__read"
-        assert history[2] == {"role": "tool", "tool_name": "fs__read", "content": "buy milk\n"}
+        assert [m["role"] for m in history] == ["system", "user", "assistant", "tool"]
+        assert history[2]["tool_calls"][0]["function"]["name"] == "fs__read"
+        assert history[3] == {"role": "tool", "tool_name": "fs__read", "content": "buy milk\n"}
         # Every tool is offered; writes park for approval (see below).
         offered = fake.calls[0][2] or []
         assert sorted(t["function"]["name"] for t in offered) == ["fs__read", "fs__write"]
@@ -219,7 +219,14 @@ async def test_tool_round_is_streamed_and_persisted(
         # The next turn replays the whole exchange to the model.
         await client.post(f"/chats/{chat_id}/stream", json={"content": "thanks"})
         _, history, _ = fake.calls[2]
-        assert [m["role"] for m in history] == ["user", "assistant", "tool", "assistant", "user"]
+        assert [m["role"] for m in history] == [
+            "system",
+            "user",
+            "assistant",
+            "tool",
+            "assistant",
+            "user",
+        ]
     finally:
         app.dependency_overrides.pop(get_ollama, None)
 
