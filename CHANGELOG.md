@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/rae004/rae-local-chat/compare/v0.4.0...v0.4.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **api:** stop leaking exception text to the client; clear CodeQL findings ([#56](https://github.com/rae004/rae-local-chat/issues/56)) ([d2b3d92](https://github.com/rae004/rae-local-chat/commit/d2b3d9259eadc504d115c0a2dd4ff7d97fb8895c))
+
 ## [0.4.0](https://github.com/rae004/rae-local-chat/compare/v0.3.1...v0.4.0) (2026-11-15)
 
 
