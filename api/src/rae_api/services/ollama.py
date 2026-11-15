@@ -2,15 +2,27 @@
 
 import asyncio
 import json
+import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
 
+log = logging.getLogger(__name__)
+
 
 class OllamaError(Exception):
-    """Ollama returned an error (HTTP or in-stream)."""
+    """Ollama returned an error (HTTP or in-stream).
+
+    `detail` is a message safe to show the user: Ollama's own error text, or a
+    fixed phrase. Callers must use it rather than str(exception), so no Python
+    exception text ever reaches a response.
+    """
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(detail)
+        self.detail = detail
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,7 +59,8 @@ class OllamaClient:
         try:
             resp = await self._http.get("/api/tags")
         except httpx.HTTPError as e:
-            raise OllamaError(f"Ollama unreachable: {e}") from e
+            log.warning("Ollama unreachable: %s", e)
+            raise OllamaError("Ollama is unreachable") from e
         if resp.status_code >= 400:
             raise OllamaError(_error_text(resp.content, resp.status_code))
         raw = resp.json().get("models", [])

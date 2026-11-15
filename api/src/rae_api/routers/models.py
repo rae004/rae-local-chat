@@ -12,7 +12,7 @@ async def list_models(ollama: OllamaDep) -> list[ModelRead]:
     try:
         return [ModelRead.model_validate(m) for m in await ollama.list_models()]
     except OllamaError as e:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(e)) from e
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, e.detail) from e
 
 
 @router.get("/default")
