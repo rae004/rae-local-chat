@@ -50,6 +50,8 @@ class Message(Base):
     tool_call_id: Mapped[str | None] = mapped_column(String(32))
     tool_name: Mapped[str | None] = mapped_column(String(200))
     tool_is_error: Mapped[bool | None] = mapped_column(Boolean)
+    # None = auto-ran (read-only); True/False = the user's approve/deny decision
+    tool_approved: Mapped[bool | None] = mapped_column(Boolean)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     chat: Mapped[Chat] = relationship(back_populates="messages")
