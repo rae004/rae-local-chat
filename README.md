@@ -46,6 +46,7 @@ The model can call tools from MCP servers that run as compose services:
 | `filesystem` | read/search files under `MCP_WORKSPACE` (default: this repo) | `@modelcontextprotocol/server-filesystem` via supergateway |
 | `memory` | knowledge-graph notes that persist across chats | `@modelcontextprotocol/server-memory` via supergateway |
 | `github` | repos, issues, PRs | GitHub's hosted server; set `GITHUB_PERSONAL_ACCESS_TOKEN` in `.env` |
+| `shell` | `ls cat head tail grep rg find wc git` inside the workspace, read-only mount, always asks | built in-tree: `mcp-servers/shell/` |
 
 Read-only tools run automatically and show up as collapsible cards in the chat. Tools that
 modify state pause the reply and show **Approve** / **Deny** on their card; no click within
