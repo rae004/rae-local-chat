@@ -1092,7 +1092,7 @@ wheels = [
 
 [[package]]
 name = "rae-api"
-version = "0.3.1"
+version = "0.4.0"
 source = { editable = "api" }
 dependencies = [
     { name = "anyio" },
@@ -1117,7 +1117,7 @@ requires-dist = [
 
 [[package]]
 name = "rae-db"
-version = "0.3.1"
+version = "0.4.0"
 source = { editable = "db" }
 dependencies = [
     { name = "alembic" },
@@ -1136,7 +1136,7 @@ requires-dist = [
 
 [[package]]
 name = "rae-local-chat"
-version = "0.3.1"
+version = "0.4.0"
 source = { virtual = "." }
 
 [package.dev-dependencies]
@@ -1163,7 +1163,7 @@ dev = [
 
 [[package]]
 name = "rae-mcp-shell"
-version = "0.3.1"
+version = "0.4.0"
 source = { editable = "mcp-servers/shell" }
 dependencies = [
     { name = "mcp" },
