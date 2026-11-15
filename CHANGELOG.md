@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/rae004/rae-local-chat/compare/v0.2.0...v0.3.0) (2026-11-15)
+
+
+### Features
+
+* approve/deny flow for write and exec tools (E2) ([#35](https://github.com/rae004/rae-local-chat/issues/35)) ([358d701](https://github.com/rae004/rae-local-chat/commit/358d7014eeb0fae60cf0c78683ee4189c81864c8))
+
 ## [0.2.0](https://github.com/rae004/rae-local-chat/compare/v0.1.1...v0.2.0) (2026-11-01)
 
 
