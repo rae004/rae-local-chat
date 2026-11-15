@@ -4,6 +4,7 @@ import httpx
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from rae_api.services.approvals import Approvals
 from rae_api.services.mcp import McpRegistry
 from rae_api.services.ollama import OllamaClient
 from rae_api.settings import Settings, get_settings
@@ -28,3 +29,11 @@ def get_registry(request: Request) -> McpRegistry:
 
 
 RegistryDep = Annotated[McpRegistry, Depends(get_registry)]
+
+
+def get_approvals(request: Request) -> Approvals:
+    approvals: Approvals = request.app.state.approvals
+    return approvals
+
+
+ApprovalsDep = Annotated[Approvals, Depends(get_approvals)]

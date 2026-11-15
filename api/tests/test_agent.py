@@ -1,6 +1,8 @@
+import asyncio
 import json
 
 from rae_api.services import agent
+from rae_api.services.approvals import Approvals
 from tests.fakes import FakeOllama, FakeRegistry
 
 
@@ -61,3 +63,76 @@ async def test_round_cap_forces_a_toolless_final_answer() -> None:
     assert len(fake.calls) == 3
     assert fake.calls[0][2] and fake.calls[1][2] and fake.calls[2][2] is None
     assert isinstance(events[-1], agent.Finished)
+
+
+WRITE = {"path": "x", "content": "y"}
+
+
+async def _collect_with_click(
+    fake: FakeOllama, registry: FakeRegistry, approvals: Approvals, click: bool | None
+) -> list[agent.AgentEvent]:
+    """Run the loop; when a call parks, decide it (None = never click)."""
+    events: list[agent.AgentEvent] = []
+    async for ev in agent.run_agent(
+        fake,  # type: ignore[arg-type]
+        registry,
+        "m",
+        [],
+        tools_enabled=True,
+        approvals=approvals,
+        approval_timeout=0.2,
+    ):
+        events.append(ev)
+        if isinstance(ev, agent.ToolCall) and ev.status == "pending" and click is not None:
+            # Simulate the click landing while the loop is parked in wait().
+            asyncio.get_running_loop().call_soon(approvals.decide, ev.id, click)
+    return events
+
+
+async def test_write_tool_approved_runs() -> None:
+    fake = FakeOllama([FakeOllama.call("fs__write", WRITE)], ["done"])
+    registry = FakeRegistry()
+    events = await _collect_with_click(fake, registry, Approvals(), click=True)
+    kinds = [type(e).__name__ for e in events]
+    assert kinds[:4] == ["AssistantTurn", "ToolCall", "ToolDecision", "ToolResult"]
+    decision = events[2]
+    assert isinstance(decision, agent.ToolDecision) and decision.approved and decision.by == "user"
+    result = events[3]
+    assert isinstance(result, agent.ToolResult) and result.approved is True and not result.is_error
+    assert registry.calls == [("fs__write", WRITE)]
+
+
+async def test_write_tool_denied_is_fed_back_as_error() -> None:
+    fake = FakeOllama([FakeOllama.call("fs__write", WRITE)], ["ok, skipping"])
+    registry = FakeRegistry()
+    events = await _collect_with_click(fake, registry, Approvals(), click=False)
+    result = next(e for e in events if isinstance(e, agent.ToolResult))
+    assert result.approved is False and result.is_error and "denied" in result.content
+    assert registry.calls == []
+    _, messages, _ = fake.calls[1]
+    assert messages[-1]["role"] == "tool" and "denied" in messages[-1]["content"]
+    assert isinstance(events[-1], agent.Finished) and events[-1].content == "ok, skipping"
+
+
+async def test_write_tool_times_out_as_denied() -> None:
+    fake = FakeOllama([FakeOllama.call("fs__write", WRITE)], ["gave up"])
+    registry = FakeRegistry()
+    events = await _collect_with_click(fake, registry, Approvals(), click=None)
+    decision = next(e for e in events if isinstance(e, agent.ToolDecision))
+    assert decision.approved is False and decision.by == "timeout"
+    assert registry.calls == []
+
+
+async def test_read_only_never_parks() -> None:
+    fake = FakeOllama([FakeOllama.call("fs__read", {"path": "notes.txt"})], ["ok"])
+    events = await _collect_with_click(fake, FakeRegistry(), Approvals(), click=None)
+    assert not any(isinstance(e, agent.ToolDecision) for e in events)
+    call = next(e for e in events if isinstance(e, agent.ToolCall))
+    assert call.status == "auto"
+
+
+async def test_without_approvals_registry_writes_are_not_offered() -> None:
+    fake = FakeOllama(["plain"])
+    await _run(fake, FakeRegistry())
+    offered = fake.calls[0][2] or []
+    assert [t["function"]["name"] for t in offered] == ["fs__read"]

@@ -3,8 +3,10 @@
 Events (all `data` is JSON):
   user        -> MessageRead      the persisted user message
   token       -> {"content": str} one streamed chunk of assistant prose
-  tool_call   -> ToolCallRead     the model asked for a tool (running now, or refused)
-  tool_result -> ToolResultRead   what the tool returned
+  tool_call     -> ToolCallRead     the model asked for a tool; status auto (running) or
+                                    pending (waiting for POST …/tool-calls/{id}/decision)
+  tool_decision -> ToolDecisionRead a pending call was approved/denied (by user or timeout)
+  tool_result   -> ToolResultRead   what the tool returned (or why it didn't run)
   message     -> MessageRead      an intermediate persisted row (assistant w/ tool_calls, tool)
   done        -> MessageRead      the persisted final assistant message
   error       -> {"detail": str}  Ollama failed; everything persisted so far stays
@@ -22,9 +24,23 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from rae_api.deps import OllamaDep, RegistryDep, SessionDep, SessionFactoryDep, SettingsDep
-from rae_api.schemas.chat import MessageCreate, MessageRead, ToolCallRead, ToolResultRead
+from rae_api.deps import (
+    ApprovalsDep,
+    OllamaDep,
+    RegistryDep,
+    SessionDep,
+    SessionFactoryDep,
+    SettingsDep,
+)
+from rae_api.schemas.chat import (
+    MessageCreate,
+    MessageRead,
+    ToolCallRead,
+    ToolDecisionRead,
+    ToolResultRead,
+)
 from rae_api.services import agent
+from rae_api.services.approvals import Approvals
 from rae_api.services.mcp import McpRegistry
 from rae_api.services.ollama import OllamaClient, OllamaError
 from rae_db import Chat, Message, Role
@@ -96,9 +112,11 @@ async def _stream(
     payload: MessageCreate,
     ollama: OllamaClient,
     registry: McpRegistry,
+    approvals: Approvals,
     model: str,
     *,
     tools_enabled: bool,
+    approval_timeout: float,
     max_rounds: int,
 ) -> AsyncIterator[str]:
     # Own sessions: request-scoped dependencies are torn down before a
@@ -121,6 +139,7 @@ async def _stream(
     yield sse("user", MessageRead.model_validate(user_msg))
 
     parts: list[str] = []  # prose of the turn in flight, for partial persistence
+    pending: agent.ToolCall | None = None  # a write call waiting for the user
     finished = False
     try:
         events = agent.run_agent(
@@ -129,6 +148,8 @@ async def _stream(
             model,
             history,
             tools_enabled=tools_enabled and payload.tools,
+            approvals=approvals,
+            approval_timeout=approval_timeout,
             max_rounds=max_rounds,
         )
         async for ev in events:
@@ -146,8 +167,14 @@ async def _stream(
                     )
                     yield sse("message", MessageRead.model_validate(row))
                 case agent.ToolCall() as call:
+                    if call.status == "pending":
+                        pending = call
                     yield sse("tool_call", ToolCallRead(**call.as_record()))
-                case agent.ToolResult(call, content, is_error):
+                case agent.ToolDecision(call, approved, by):
+                    pending = None
+                    decided = ToolDecisionRead(id=call.id, approved=approved, by=by)
+                    yield sse("tool_decision", decided)
+                case agent.ToolResult(call, content, is_error, approved):
                     row = await _persist(
                         factory,
                         Message(
@@ -157,6 +184,7 @@ async def _stream(
                             tool_call_id=call.id,
                             tool_name=call.name,
                             tool_is_error=is_error,
+                            tool_approved=approved,
                         ),
                     )
                     result = ToolResultRead(
@@ -175,11 +203,26 @@ async def _stream(
     finally:
         # Error, or the client went away mid-stream (CancelledError): keep what
         # we got. The request's cancel scope may already be cancelled, so shield.
-        if not finished and parts:
+        if not finished and (parts or pending):
             with anyio.CancelScope(shield=True):
-                await _persist(
-                    factory, _assistant(chat_id, "".join(parts) + "\n\n_[stopped]_", model)
-                )
+                if pending is not None:
+                    # Answer the dangling tool call so the history stays well-formed.
+                    await _persist(
+                        factory,
+                        Message(
+                            chat_id=chat_id,
+                            role=Role.tool,
+                            content=f"{pending.name} was not run: chat closed before a decision.",
+                            tool_call_id=pending.id,
+                            tool_name=pending.name,
+                            tool_is_error=True,
+                            tool_approved=False,
+                        ),
+                    )
+                if parts:
+                    await _persist(
+                        factory, _assistant(chat_id, "".join(parts) + "\n\n_[stopped]_", model)
+                    )
 
 
 @router.post("/{chat_id}/stream", status_code=status.HTTP_200_OK)
@@ -190,6 +233,7 @@ async def stream_message(
     factory: SessionFactoryDep,
     ollama: OllamaDep,
     registry: RegistryDep,
+    approvals: ApprovalsDep,
     settings: SettingsDep,
 ) -> StreamingResponse:
     if await session.get(Chat, chat_id) is None:
@@ -201,8 +245,10 @@ async def stream_message(
             payload,
             ollama,
             registry,
+            approvals,
             payload.model or settings.ollama_model,
             tools_enabled=settings.tools_enabled,
+            approval_timeout=settings.tool_approval_timeout,
             max_rounds=settings.agent_max_rounds,
         ),
         media_type="text/event-stream",
