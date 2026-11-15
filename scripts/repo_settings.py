@@ -78,29 +78,47 @@ def normalize(value: Any) -> Any:
     return value
 
 
-def drift(desired: Any, live: Any, path: str = "") -> list[tuple[str, Any, Any]]:
-    """Keys in `desired` whose live value differs. Extra live keys are ignored."""
+MISSING = object()
+
+Change = tuple[str, Any, Any]
+
+
+def drift(desired: Any, live: Any, path: str = "") -> tuple[list[Change], list[str]]:
+    """(changed keys, unverifiable keys). Extra live keys are ignored.
+
+    GitHub omits admin-only fields (merge options, `bypass_actors`, …) when the
+    token lacks admin, so a key missing from the live object is "can't tell",
+    not drift.
+    """
+    if live is MISSING:
+        return [], [path]
     if isinstance(desired, dict) and isinstance(live, dict):
-        out: list[tuple[str, Any, Any]] = []
+        changed: list[Change] = []
+        unverified: list[str] = []
         for key, want in desired.items():
-            out += drift(want, live.get(key, "<missing>"), f"{path}.{key}" if path else key)
-        return out
+            c, u = drift(want, live.get(key, MISSING), f"{path}.{key}" if path else key)
+            changed += c
+            unverified += u
+        return changed, unverified
     if normalize(desired) != normalize(live):
-        return [(path, desired, live)]
-    return []
+        return [(path, desired, live)], []
+    return [], []
 
 
 def load(file: Path) -> Any:
     return json.loads(file.read_text())
 
 
-def report(name: str, changes: list[tuple[str, Any, Any]]) -> None:
+def report(name: str, changes: list[Change], unverified: list[str]) -> None:
     if not changes:
-        print(f"  ok       {name}")
-        return
-    print(f"  DRIFT    {name}")
-    for path, want, have in changes:
-        print(f"           {path}: live={json.dumps(have)} -> want={json.dumps(want)}")
+        note = f" ({len(unverified)} admin-only keys unverified)" if unverified else ""
+        print(f"  ok       {name}{note}")
+    else:
+        print(f"  DRIFT    {name}")
+        for path, want, have in changes:
+            print(f"           {path}: live={json.dumps(have)} -> want={json.dumps(want)}")
+    if unverified:
+        print(f"           unverified with this token: {', '.join(unverified)}")
 
 
 def check_targets(apply: bool) -> int:
@@ -114,8 +132,8 @@ def check_targets(apply: bool) -> int:
                 print(f"  skipped  {t.file} (needs admin token: {e})")
                 continue
             raise
-        changes = drift(desired, live)
-        report(t.file, changes)
+        changes, unverified = drift(desired, live)
+        report(t.file, changes, unverified)
         if changes:
             drifted += 1
             if apply:
@@ -139,8 +157,8 @@ def check_rulesets(apply: bool) -> int:
                 print(f"  created  {name}")
             continue
         live = gh("GET", f"{REPO}/rulesets/{ruleset_id}")
-        changes = drift(desired, live)
-        report(name, changes)
+        changes, unverified = drift(desired, live)
+        report(name, changes, unverified)
         if changes:
             drifted += 1
             if apply:
