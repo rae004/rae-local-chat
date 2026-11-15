@@ -48,9 +48,11 @@ The model can call tools from MCP servers that run as compose services:
 | `github` | repos, issues, PRs | GitHub's hosted server; set `GITHUB_PERSONAL_ACCESS_TOKEN` in `.env` |
 
 Read-only tools run automatically and show up as collapsible cards in the chat. Tools that
-modify state are refused until the approve/deny flow lands (Milestone E2). `GET /tools`
-lists the catalogue and per-server status; the **Tools** toggle in the composer turns tool
-use off per message. Only models whose Ollama `capabilities` include `tools` can use them.
+modify state pause the reply and show **Approve** / **Deny** on their card; no click within
+5 minutes (`TOOL_APPROVAL_TIMEOUT`) counts as deny, and the model is told either way so it
+can carry on. Decisions are stored with the chat. `GET /tools` lists the catalogue and
+per-server status; the **Tools** toggle in the composer turns tool use off per message.
+Only models whose Ollama `capabilities` include `tools` can use them.
 
 ## Repo settings
 
