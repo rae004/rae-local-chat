@@ -9,7 +9,7 @@ server restarts.
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -17,7 +17,7 @@ from typing import Any
 import httpx2
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
-from mcp.types import TextContent
+from mcp.types import ContentBlock, EmbeddedResource, TextContent, TextResourceContents
 from pydantic import BaseModel
 
 log = logging.getLogger(__name__)
@@ -58,6 +58,26 @@ class ToolSpec:
 class ToolOutcome:
     content: str
     is_error: bool
+
+
+def flatten_content(blocks: Sequence[ContentBlock]) -> str:
+    """Join a tool result's content blocks into the text the model sees.
+
+    Text blocks and text resources (GitHub's `get_file_contents` returns the file
+    as an embedded resource) are passed through; binary blobs, images and audio
+    are replaced by a marker.
+    """
+    parts: list[str] = []
+    for c in blocks:
+        if isinstance(c, TextContent):
+            parts.append(c.text)
+        elif isinstance(c, EmbeddedResource) and isinstance(c.resource, TextResourceContents):
+            parts.append(c.resource.text)
+        elif isinstance(c, EmbeddedResource):
+            parts.append(f"[binary resource {c.resource.uri} omitted]")
+        else:
+            parts.append(f"[{c.type} content omitted]")
+    return "\n".join(parts)
 
 
 class McpRegistry:
@@ -103,10 +123,7 @@ class McpRegistry:
                 result = await client.call_tool(spec.name, arguments)
         except Exception as e:  # noqa: BLE001 — any transport/protocol failure is a tool error
             return ToolOutcome(f"{spec.server} failed: {type(e).__name__}: {e}", is_error=True)
-        text = "\n".join(
-            c.text if isinstance(c, TextContent) else f"[{c.type} content omitted]"
-            for c in result.content
-        )
+        text = flatten_content(result.content)
         if not text and result.structured_content is not None:
             text = json.dumps(result.structured_content)
         return ToolOutcome(self._truncate(text), is_error=bool(result.is_error))
