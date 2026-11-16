@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.3](https://github.com/rae004/rae-local-chat/compare/v0.4.2...v0.4.3) (2026-11-16)
+
+
+### Bug Fixes
+
+* **api:** pass embedded text resources in MCP tool results to the model ([#60](https://github.com/rae004/rae-local-chat/issues/60)) ([ec3dcf8](https://github.com/rae004/rae-local-chat/commit/ec3dcf8eda04ae17736116052197be22953b0553))
+
 ## [0.4.2](https://github.com/rae004/rae-local-chat/compare/v0.4.1...v0.4.2) (2026-11-15)
 
 
