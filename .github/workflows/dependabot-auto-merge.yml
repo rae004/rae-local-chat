@@ -1,6 +1,10 @@
 name: Dependabot auto-merge
 
-on: pull_request
+on:
+  pull_request:
+  schedule:
+    - cron: "17 6 * * *" # daily, 06:17 UTC
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -8,7 +12,7 @@ permissions:
 
 jobs:
   auto-merge:
-    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Fetch Dependabot metadata
@@ -32,3 +36,30 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Merges performed by auto-merge are attributed to GITHUB_TOKEN, and GitHub never
+  # triggers workflows from that token's events, so a `pull_request: closed` step would
+  # not run for them. The repo's delete-branch-on-merge also loses the race when several
+  # Dependabot PRs merge while Dependabot is rebasing the rest. Sweep instead.
+  prune-merged-branches:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete dependabot/* branches whose PRs are all closed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$REPO/branches?per_page=100" -q '.[].name' \
+            | { grep '^dependabot/' || true; } \
+            | while read -r branch; do
+                total=$(gh pr list -R "$REPO" --head "$branch" --state all --json number -q length)
+                open=$(gh pr list -R "$REPO" --head "$branch" --state open --json number -q length)
+                if [ "$total" -gt 0 ] && [ "$open" -eq 0 ]; then
+                  echo "deleting $branch (PRs: $total, open: 0)"
+                  gh api -X DELETE "repos/$REPO/git/refs/heads/$branch"
+                else
+                  echo "keeping $branch (PRs: $total, open: $open)"
+                fi
+              done
