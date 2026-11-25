@@ -84,4 +84,9 @@ See `package.json` scripts: `pnpm dev | down | migrate | migration | lint | type
   (uv workspace member `rae-mcp-shell`; allowlist + cwd/path confinement + timeout + output
   cap in code, read-only mount + read-only rootfs + cap_drop in compose; tool is not
   read-only so every call asks).
+- **F** tool controls, three PRs: **F1** per-server switches ✅ (gear by the Tools toggle;
+  `lib/toolServers.ts` is a `useSyncExternalStore` store of the *disabled* set in
+  localStorage, GitHub off by default; `MessageCreate.servers` narrows what the registry
+  offers, `None` = all) · **F2** "always allow" per-tool rules, server-side table, shell
+  allowable too · **F3** per-chat tool call history drawer.
 - App display name is **Rae Bot**; repo stays `rae-local-chat`.

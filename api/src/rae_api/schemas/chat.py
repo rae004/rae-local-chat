@@ -30,6 +30,8 @@ class MessageCreate(BaseModel):
     model: str | None = Field(default=None, max_length=100)
     # Offer MCP tools to the model for this turn.
     tools: bool = True
+    # Restrict offered tools to these MCP servers (by name); None = every connected server.
+    servers: list[str] | None = Field(default=None, max_length=50)
 
 
 ToolCallStatus = Literal["auto", "pending"]

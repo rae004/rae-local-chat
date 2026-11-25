@@ -24,6 +24,8 @@ export interface StreamOptions {
   model: string | null
   /** Offer MCP tools to the model for this turn. */
   tools: boolean
+  /** MCP servers whose tools to offer; undefined = all connected servers. */
+  servers?: string[]
 }
 
 export const api = {
@@ -53,13 +55,13 @@ export const api = {
   streamMessage: async (
     chatId: string,
     content: string,
-    { model, tools }: StreamOptions,
+    { model, tools, servers }: StreamOptions,
     signal: AbortSignal,
   ): Promise<ReadableStream<Uint8Array>> => {
     const res = await fetch(`${API_URL}/chats/${chatId}/stream`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-      body: JSON.stringify({ content, model, tools }),
+      body: JSON.stringify({ content, model, tools, servers }),
       signal,
     })
     if (!res.ok) throw new ApiError(res.status, await res.text())

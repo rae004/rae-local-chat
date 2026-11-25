@@ -19,7 +19,10 @@ export function ChatWindow({ chatId }: Props) {
   const { send } = stream
   useEffect(() => {
     const first = pendingPrompt.take(chatId)
-    if (first) void send(first.content, { model: first.model, tools: first.tools })
+    if (first) {
+      const { content, ...options } = first
+      void send(content, options)
+    }
   }, [chatId, send])
 
   return (

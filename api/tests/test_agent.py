@@ -178,3 +178,15 @@ async def test_without_approvals_registry_writes_are_not_offered() -> None:
     await _run(fake, FakeRegistry())
     offered = fake.calls[0][2] or []
     assert [t["function"]["name"] for t in offered] == ["fs__read"]
+
+
+async def test_servers_filter_narrows_the_offered_tools() -> None:
+    fake = FakeOllama(["ok"])
+    await _run(fake, FakeRegistry(), servers=["fs"], approvals=Approvals())
+    assert [t["function"]["name"] for t in fake.calls[0][2] or []] == ["fs__read", "fs__write"]
+
+    fake = FakeOllama(["ok"])
+    await _run(fake, FakeRegistry(), servers=["github"], system_prompt="Be terse.")
+    # Nothing matched: no tools, so no tool guidance either.
+    assert not fake.calls[0][2]
+    assert "fewest calls" not in fake.calls[0][1][0]["content"]

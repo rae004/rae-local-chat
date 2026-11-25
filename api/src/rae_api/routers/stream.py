@@ -153,6 +153,7 @@ async def _stream(
             model,
             history,
             tools_enabled=tools_enabled and payload.tools,
+            servers=payload.servers,
             approvals=approvals,
             approval_timeout=approval_timeout,
             max_rounds=max_rounds,
