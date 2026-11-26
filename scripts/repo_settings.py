@@ -211,7 +211,10 @@ def main(argv: list[str]) -> int:
         print(f"error: {e}", file=sys.stderr)
         return 1
     if drifted and not apply:
-        print(f"\n{drifted} target(s) drifted. Run `pnpm repo:apply` to push the files.")
+        print(
+            f"\n{drifted} target(s) drifted. "
+            "Run `python3 scripts/repo_settings.py apply` to push the files."
+        )
         return 1
     print("\nAll settings match." if not drifted else f"\n{drifted} target(s) applied.")
     return 0
