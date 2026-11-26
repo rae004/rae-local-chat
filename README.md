@@ -61,6 +61,8 @@ the opening system message; tool-use guidance is appended automatically when too
 
 ## Repo settings
 
-GitHub settings for this repo (merge options, Actions permissions, the `main` ruleset) are
-files in [`.github/repo/`](.github/repo/). `pnpm repo:diff` shows drift, `pnpm repo:apply`
-pushes the files. CI diffs on every PR that touches them.
+GitHub settings for this repo (merge options, Actions permissions, the branch ruleset) come
+from the shared baseline in [`rae004/.github`](https://github.com/rae004/.github) and are
+applied from there. The only part kept here is
+[`.github/repo-settings.json`](.github/repo-settings.json), which lists the CI jobs that must
+pass before a PR can merge.
