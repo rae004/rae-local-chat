@@ -400,8 +400,10 @@ async def test_decision_always_adds_a_rule_and_later_calls_skip_the_ask(
         assert "tool_decision" not in kinds and "tool_call" in kinds
 
         # Revoke: back to asking (deny it this time, via the plain endpoint).
-        assert (await client.delete("/tools/allow-rules/fs__write")).status_code == 204
-        assert (await client.delete("/tools/allow-rules/fs__write")).status_code == 404
+        revoked = await client.delete("/tools/allow-rules/fs__write")
+        assert revoked.status_code == 204
+        again = await client.delete("/tools/allow-rules/fs__write")
+        assert again.status_code == 404
         app.dependency_overrides[get_ollama] = lambda: FakeOllama([write], ["ok"])
         denier = asyncio.create_task(_decide_when_pending(approvals, False))
         r = await client.post(f"/chats/{chat_id}/stream", json={"content": "once more"})
