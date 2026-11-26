@@ -53,6 +53,9 @@ modify state pause the reply and show **Approve** / **Deny** on their card; no c
 5 minutes (`TOOL_APPROVAL_TIMEOUT`) counts as deny, and the model is told either way so it
 can carry on. Decisions are stored with the chat. `GET /tools` lists the catalogue and
 per-server status; the **Tools** toggle in the composer turns tool use off per message.
+The gear next to it switches whole servers on or off: an off server's tools are left out of
+the prompt entirely (the count on the toggle is what the model will actually see). Choices
+are per browser; GitHub starts off because its 46 tools swamp the catalogue for small models.
 Only models whose Ollama `capabilities` include `tools` can use them. `SYSTEM_PROMPT` sets
 the opening system message; tool-use guidance is appended automatically when tools are on.
 

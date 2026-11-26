@@ -9,7 +9,7 @@ server restarts.
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Collection, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -108,8 +108,15 @@ class McpRegistry:
                 tools[spec.qualified] = spec
         self.tools = tools
 
-    def ollama_tools(self, *, include_write: bool = False) -> list[dict[str, Any]]:
-        return [t.as_ollama() for t in self.tools.values() if include_write or t.read_only]
+    def ollama_tools(
+        self, *, include_write: bool = False, servers: Collection[str] | None = None
+    ) -> list[dict[str, Any]]:
+        """Tool schemas for Ollama; `servers` narrows to those MCP servers (None = all)."""
+        return [
+            t.as_ollama()
+            for t in self.tools.values()
+            if (include_write or t.read_only) and (servers is None or t.server in servers)
+        ]
 
     def get(self, qualified: str) -> ToolSpec | None:
         return self.tools.get(qualified)

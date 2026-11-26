@@ -6,7 +6,7 @@ decides (or the timeout counts as a denial).
 """
 
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Collection
 from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
@@ -83,13 +83,18 @@ async def run_agent(
     history: list[dict[str, Any]],
     *,
     tools_enabled: bool,
+    servers: Collection[str] | None = None,
     approvals: Approvals | None = None,
     approval_timeout: float = 300.0,
     max_rounds: int = 10,
     system_prompt: str | None = None,
 ) -> AsyncIterator[AgentEvent]:
     # Without an approvals registry there's no way to ask, so only offer read-only tools.
-    tools = registry.ollama_tools(include_write=approvals is not None) if tools_enabled else []
+    tools = (
+        registry.ollama_tools(include_write=approvals is not None, servers=servers)
+        if tools_enabled
+        else []
+    )
     messages = _with_system(history, system_prompt, tools_offered=bool(tools))
     for round_no in range(max_rounds):
         # Last round: no tools, so the model has to answer.

@@ -1,6 +1,7 @@
 import type { StreamOptions } from '../api/client'
 import { useModels, useSelectedModel } from '../hooks/useModels'
-import { useToolsEnabled } from '../hooks/useTools'
+import { useTools, useToolsEnabled } from '../hooks/useTools'
+import { toolServers, useToolServers } from '../lib/toolServers'
 import { ModelSelector } from './ModelSelector'
 import { PromptBox } from './PromptBox'
 import { ToolsToggle } from './ToolsToggle'
@@ -16,6 +17,9 @@ export function Composer({ onSubmit, disabled = false, onStop }: Props) {
   const [model, setModel] = useSelectedModel()
   const [toolsOn, setToolsOn] = useToolsEnabled()
   const models = useModels()
+  const catalogue = useTools()
+  useToolServers() // re-render when a server is switched in the dialog
+  const servers = toolServers.enabled(catalogue.data)
 
   // Unknown (default model, or list not loaded yet) counts as supported.
   const supportsTools = model ? (models.data?.find((m) => m.name === model)?.tools ?? true) : true
@@ -32,7 +36,11 @@ export function Composer({ onSubmit, disabled = false, onStop }: Props) {
           </button>
         ) : null}
       </div>
-      <PromptBox onSubmit={(c) => onSubmit(c, { model, tools })} disabled={disabled} autoFocus />
+      <PromptBox
+        onSubmit={(c) => onSubmit(c, { model, tools, servers })}
+        disabled={disabled}
+        autoFocus
+      />
     </div>
   )
 }

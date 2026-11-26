@@ -259,6 +259,21 @@ async def test_tools_can_be_disabled_per_message(
         app.dependency_overrides.pop(get_ollama, None)
 
 
+async def test_servers_narrow_the_tools_offered(
+    client: AsyncClient, registry: FakeRegistry
+) -> None:
+    fake = FakeOllama(["plain"])
+    app.dependency_overrides[get_ollama] = lambda: fake
+    try:
+        chat_id = await _new_chat(client)
+        await client.post(f"/chats/{chat_id}/stream", json={"content": "hi", "servers": ["fs"]})
+        assert [t["function"]["name"] for t in fake.calls[0][2] or []] == ["fs__read", "fs__write"]
+        await client.post(f"/chats/{chat_id}/stream", json={"content": "hi", "servers": []})
+        assert not fake.calls[1][2]
+    finally:
+        app.dependency_overrides.pop(get_ollama, None)
+
+
 @pytest.fixture
 def approvals() -> Iterator[Approvals]:
     reg = Approvals()
