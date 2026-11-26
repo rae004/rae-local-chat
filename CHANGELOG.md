@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/rae004/rae-local-chat/compare/v0.4.3...v0.5.0) (2026-11-26)
+
+
+### Features
+
+* **tools:** per-server switches; off servers are left out of the prompt (F1) ([#73](https://github.com/rae004/rae-local-chat/issues/73)) ([ac309b7](https://github.com/rae004/rae-local-chat/commit/ac309b7766755b90161a69a6a360a6c470bbb66d))
+
 ## [0.4.3](https://github.com/rae004/rae-local-chat/compare/v0.4.2...v0.4.3) (2026-11-16)
 
 
