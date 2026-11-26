@@ -190,3 +190,18 @@ async def test_servers_filter_narrows_the_offered_tools() -> None:
     # Nothing matched: no tools, so no tool guidance either.
     assert not fake.calls[0][2]
     assert "fewest calls" not in fake.calls[0][1][0]["content"]
+
+
+async def test_allowed_write_tool_runs_without_asking() -> None:
+    fake = FakeOllama([FakeOllama.call("fs__write", {"path": "x", "content": "y"})], ["ok"])
+    registry = FakeRegistry()
+    events = await _run(fake, registry, approvals=Approvals(), allowed={"fs__write"})
+    call = next(e for e in events if isinstance(e, agent.ToolCall))
+    assert call.status == "allowed" and call.read_only is False
+    assert not any(isinstance(e, agent.ToolDecision) for e in events)
+    result = next(e for e in events if isinstance(e, agent.ToolResult))
+    assert result.is_error is False and result.approved is None
+    assert registry.calls == [("fs__write", {"path": "x", "content": "y"})]
+    # The persisted turn carries the same status.
+    turn = next(e for e in events if isinstance(e, agent.AssistantTurn))
+    assert turn.tool_calls[0].status == "allowed"

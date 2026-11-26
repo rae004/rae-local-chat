@@ -8,7 +8,7 @@ export interface Chat {
 }
 
 /** A tool invocation the model requested; stored on the assistant row and sent as SSE `tool_call`. */
-export type ToolCallStatus = 'auto' | 'pending'
+export type ToolCallStatus = 'auto' | 'pending' | 'allowed'
 
 export interface ToolCall {
   id: string
@@ -16,7 +16,7 @@ export interface ToolCall {
   server: string
   arguments: Record<string, unknown>
   read_only: boolean
-  /** auto = ran without asking; pending = waiting for the user's decision */
+  /** auto = read-only, ran without asking; allowed = ran under an "always allow" rule; pending = waiting for the user */
   status?: ToolCallStatus
 }
 
@@ -66,6 +66,11 @@ export interface ToolInfo {
   qualified: string
   description: string
   read_only: boolean
+}
+
+/** A tool the user chose to run without asking. */
+export interface AllowRule {
+  tool: string
 }
 
 export interface ToolsInfo {

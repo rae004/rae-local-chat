@@ -1,4 +1,4 @@
-import type { Chat, Message, ModelInfo, ToolsInfo } from './types'
+import type { AllowRule, Chat, Message, ModelInfo, ToolsInfo } from './types'
 
 export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -41,12 +41,24 @@ export const api = {
   listMessages: (chatId: string) => request<Message[]>(`/chats/${chatId}/messages`),
   listModels: () => request<ModelInfo[]>('/models'),
   listTools: () => request<ToolsInfo>('/tools'),
-  /** Approve or deny a tool call the stream is waiting on. */
-  decideToolCall: async (chatId: string, callId: string, approved: boolean): Promise<void> => {
+  /** Approve or deny a tool call the stream is waiting on; `always` also records an allow rule. */
+  decideToolCall: async (
+    chatId: string,
+    callId: string,
+    approved: boolean,
+    always = false,
+  ): Promise<void> => {
     const res = await fetch(`${API_URL}/chats/${chatId}/tool-calls/${callId}/decision`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ approved }),
+      body: JSON.stringify({ approved, always }),
+    })
+    if (!res.ok) throw new ApiError(res.status, await res.text())
+  },
+  listAllowRules: () => request<AllowRule[]>('/tools/allow-rules'),
+  deleteAllowRule: async (tool: string): Promise<void> => {
+    const res = await fetch(`${API_URL}/tools/allow-rules/${encodeURIComponent(tool)}`, {
+      method: 'DELETE',
     })
     if (!res.ok) throw new ApiError(res.status, await res.text())
   },

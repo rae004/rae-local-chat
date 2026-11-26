@@ -34,7 +34,7 @@ class MessageCreate(BaseModel):
     servers: list[str] | None = Field(default=None, max_length=50)
 
 
-ToolCallStatus = Literal["auto", "pending"]
+ToolCallStatus = Literal["auto", "pending", "allowed"]
 
 
 class ToolCallRead(BaseModel):
@@ -45,7 +45,8 @@ class ToolCallRead(BaseModel):
     server: str
     arguments: dict[str, Any]
     read_only: bool
-    # auto = running now (read-only); pending = waiting for the user's decision
+    # auto = running now (read-only); allowed = running now under a standing "always allow"
+    # rule; pending = waiting for the user's decision
     status: ToolCallStatus = "auto"
 
 
@@ -60,6 +61,12 @@ class ToolDecisionRead(BaseModel):
 
 class ToolDecision(BaseModel):
     approved: bool
+    # With approved: also record an "always allow" rule for this tool.
+    always: bool = False
+
+
+class AllowRuleRead(BaseModel):
+    tool: str
 
 
 class ToolResultRead(BaseModel):

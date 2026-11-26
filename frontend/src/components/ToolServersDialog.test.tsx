@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ToolsInfo } from '../api/types'
-import { toolsKey } from '../hooks/useTools'
+import { allowRulesKey, toolsKey } from '../hooks/useTools'
 import { toolServers } from '../lib/toolServers'
 import { ToolServersDialog } from './ToolServersDialog'
 
@@ -16,9 +16,10 @@ const info: ToolsInfo = {
   ],
 }
 
-function renderDialog(onClose = vi.fn()) {
-  const qc = new QueryClient()
+function renderDialog(onClose = vi.fn(), rules: { tool: string }[] = []) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   qc.setQueryData(toolsKey, info)
+  qc.setQueryData(allowRulesKey, rules)
   render(
     <QueryClientProvider client={qc}>
       <ToolServersDialog open onClose={onClose} />
@@ -28,6 +29,7 @@ function renderDialog(onClose = vi.fn()) {
 }
 
 beforeEach(() => toolServers.reset())
+afterEach(() => vi.restoreAllMocks())
 
 describe('ToolServersDialog', () => {
   it('lists servers with counts, status and the default github-off state', () => {
@@ -44,6 +46,29 @@ describe('ToolServersDialog', () => {
     expect(toolServers.isEnabled('github')).toBe(true)
     fireEvent.click(screen.getByLabelText('Enable filesystem'))
     expect(toolServers.isEnabled('filesystem')).toBe(false)
+  })
+
+  it('lists always-allow rules and revokes one', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(null, { status: 204 }))
+    renderDialog(vi.fn(), [{ tool: 'shell__run' }])
+    expect(screen.getByText('shell__run')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke' }))
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) =>
+            String(url).endsWith('/tools/allow-rules/shell__run') &&
+            (init as RequestInit | undefined)?.method === 'DELETE',
+        ),
+      ).toBe(true),
+    )
+  })
+
+  it('says so when there are no rules', () => {
+    renderDialog()
+    expect(screen.getByText(/Every tool that modifies state asks first/)).toBeInTheDocument()
   })
 
   it('Done closes', () => {

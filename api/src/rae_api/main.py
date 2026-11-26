@@ -6,9 +6,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from rae_api.routers import approvals, chats, models, stream, tools
+from rae_api.services.allowrules import AllowRules
 from rae_api.services.approvals import Approvals
 from rae_api.services.mcp import McpRegistry
 from rae_api.settings import get_settings
+from rae_db import get_session_factory
 
 
 @asynccontextmanager
@@ -20,6 +22,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await registry.refresh()  # a down server is logged, not fatal
     app.state.mcp = registry
     app.state.approvals = Approvals()
+    rules = AllowRules(get_session_factory())
+    await rules.load()
+    app.state.allow_rules = rules
     timeout = httpx.Timeout(10.0, read=settings.ollama_read_timeout)
     async with httpx.AsyncClient(base_url=settings.ollama_base_url, timeout=timeout) as http:
         app.state.ollama_http = http

@@ -11,6 +11,7 @@ import anyio
 
 @dataclass
 class _Pending:
+    tool: str
     event: anyio.Event = field(default_factory=anyio.Event)
     approved: bool | None = None
 
@@ -19,9 +20,14 @@ class Approvals:
     def __init__(self) -> None:
         self._pending: dict[str, _Pending] = {}
 
-    def register(self, call_id: str) -> None:
+    def register(self, call_id: str, tool: str = "") -> None:
         """Start tracking `call_id` before announcing it, so a fast click can't be lost."""
-        self._pending[call_id] = _Pending()
+        self._pending[call_id] = _Pending(tool)
+
+    def tool_of(self, call_id: str) -> str | None:
+        """Qualified tool name of a pending call, or None if nothing is waiting under that id."""
+        pending = self._pending.get(call_id)
+        return pending.tool if pending is not None else None
 
     async def wait(self, call_id: str, wait_seconds: float) -> bool | None:
         """True approved, False denied, None timed out. Forgets the call afterwards."""

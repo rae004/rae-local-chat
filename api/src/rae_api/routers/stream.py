@@ -3,7 +3,8 @@
 Events (all `data` is JSON):
   user        -> MessageRead      the persisted user message
   token       -> {"content": str} one streamed chunk of assistant prose
-  tool_call     -> ToolCallRead     the model asked for a tool; status auto (running) or
+  tool_call     -> ToolCallRead     the model asked for a tool; status auto (running,
+                                    read-only), allowed (running, "always allow" rule) or
                                     pending (waiting for POST …/tool-calls/{id}/decision)
   tool_decision -> ToolDecisionRead a pending call was approved/denied (by user or timeout)
   tool_result   -> ToolResultRead   what the tool returned (or why it didn't run)
@@ -27,6 +28,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from rae_api.deps import (
+    AllowRulesDep,
     ApprovalsDep,
     OllamaDep,
     RegistryDep,
@@ -42,6 +44,7 @@ from rae_api.schemas.chat import (
     ToolResultRead,
 )
 from rae_api.services import agent
+from rae_api.services.allowrules import AllowRules
 from rae_api.services.approvals import Approvals
 from rae_api.services.mcp import McpRegistry
 from rae_api.services.ollama import OllamaClient, OllamaError
@@ -117,6 +120,7 @@ async def _stream(
     ollama: OllamaClient,
     registry: McpRegistry,
     approvals: Approvals,
+    allow_rules: AllowRules,
     model: str,
     *,
     tools_enabled: bool,
@@ -155,6 +159,7 @@ async def _stream(
             tools_enabled=tools_enabled and payload.tools,
             servers=payload.servers,
             approvals=approvals,
+            allowed=allow_rules,
             approval_timeout=approval_timeout,
             max_rounds=max_rounds,
             system_prompt=system_prompt,
@@ -243,6 +248,7 @@ async def stream_message(
     ollama: OllamaDep,
     registry: RegistryDep,
     approvals: ApprovalsDep,
+    allow_rules: AllowRulesDep,
     settings: SettingsDep,
 ) -> StreamingResponse:
     if await session.get(Chat, chat_id) is None:
@@ -255,6 +261,7 @@ async def stream_message(
             ollama,
             registry,
             approvals,
+            allow_rules,
             payload.model or settings.ollama_model,
             tools_enabled=settings.tools_enabled,
             approval_timeout=settings.tool_approval_timeout,

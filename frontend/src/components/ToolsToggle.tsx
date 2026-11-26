@@ -44,8 +44,8 @@ export function ToolsToggle({ checked, onChange, unsupported = false }: Props) {
       <button
         type="button"
         className="btn btn-ghost btn-xs btn-circle"
-        aria-label="Tool servers"
-        title="Choose which MCP servers to offer"
+        aria-label="Tool settings"
+        title="Tool settings: servers and always-allow rules"
         disabled={servers.length === 0}
         onClick={() => setOpen(true)}
       >
