@@ -432,3 +432,50 @@ async def test_list_tools(client: AsyncClient, registry: FakeRegistry) -> None:
         ("fs__read", True),
         ("fs__write", False),
     ]
+
+
+async def test_tool_call_history_joins_calls_with_results(
+    client: AsyncClient, registry: FakeRegistry, approvals: Approvals
+) -> None:
+    fake = FakeOllama(
+        [FakeOllama.call("fs__read", {"path": "notes.txt"})],
+        [FakeOllama.call("fs__read", {"path": "missing.txt"})],
+        ["done"],
+    )
+    app.dependency_overrides[get_ollama] = lambda: fake
+    try:
+        chat_id = await _new_chat(client)
+        await client.post(f"/chats/{chat_id}/stream", json={"content": "read both"})
+        r = await client.get(f"/chats/{chat_id}/tool-calls")
+        assert r.status_code == 200
+        rows = r.json()
+        # newest first
+        assert [row["arguments"]["path"] for row in rows] == ["missing.txt", "notes.txt"]
+        failed, ok = rows
+        assert ok["name"] == "fs__read" and ok["server"] == "fs" and ok["read_only"] is True
+        assert ok["status"] == "auto" and ok["approved"] is None
+        assert ok["result"] == "buy milk\n" and ok["is_error"] is False
+        assert failed["is_error"] is True and failed["result"] == "No such file: missing.txt"
+        messages = (await client.get(f"/chats/{chat_id}/messages")).json()
+        assistant_ids = {m["id"] for m in messages if m["role"] == "assistant" and m["tool_calls"]}
+        assert {row["message_id"] for row in rows} == assistant_ids
+    finally:
+        app.dependency_overrides.pop(get_ollama, None)
+
+
+async def test_tool_call_history_records_a_denied_call(
+    client: AsyncClient, registry: FakeRegistry, approvals: Approvals
+) -> None:
+    fake = FakeOllama([FakeOllama.call("fs__write", {"path": "x"})], ["ok"])
+    app.dependency_overrides[get_ollama] = lambda: fake
+    try:
+        chat_id = await _new_chat(client)
+
+        denier = asyncio.create_task(_decide_when_pending(approvals, False))
+        await client.post(f"/chats/{chat_id}/stream", json={"content": "write"})
+        await denier
+        (row,) = (await client.get(f"/chats/{chat_id}/tool-calls")).json()
+        assert row["status"] == "pending" and row["approved"] is False
+        assert row["is_error"] is True and registry.calls == []
+    finally:
+        app.dependency_overrides.pop(get_ollama, None)

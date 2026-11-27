@@ -4,8 +4,14 @@ from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import select
 
 from rae_api.deps import SessionDep
-from rae_api.schemas.chat import ChatCreate, ChatRead, ChatUpdate, MessageRead
-from rae_db import Chat, Message
+from rae_api.schemas.chat import (
+    ChatCreate,
+    ChatRead,
+    ChatUpdate,
+    MessageRead,
+    ToolCallHistoryRead,
+)
+from rae_db import Chat, Message, Role
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
@@ -39,6 +45,38 @@ async def list_messages(chat_id: uuid.UUID, session: SessionDep) -> list[Message
         select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)
     )
     return list(result)
+
+
+@router.get("/{chat_id}/tool-calls", response_model=list[ToolCallHistoryRead])
+async def list_tool_calls(chat_id: uuid.UUID, session: SessionDep) -> list[ToolCallHistoryRead]:
+    """Every tool call in the chat with its outcome, newest first."""
+    await _get_chat_or_404(session, chat_id)
+    rows = list(
+        await session.scalars(
+            select(Message)
+            .where(Message.chat_id == chat_id, Message.role != Role.user)
+            .order_by(Message.created_at)
+        )
+    )
+    results = {m.tool_call_id: m for m in rows if m.role == Role.tool}
+    history: list[ToolCallHistoryRead] = []
+    for m in rows:
+        if m.role != Role.assistant or not m.tool_calls:
+            continue
+        for record in m.tool_calls:
+            answer = results.get(record["id"])
+            history.append(
+                ToolCallHistoryRead(
+                    **record,
+                    message_id=m.id,
+                    created_at=m.created_at,
+                    approved=answer.tool_approved if answer else None,
+                    result=answer.content if answer else None,
+                    is_error=answer.tool_is_error if answer else None,
+                )
+            )
+    history.reverse()
+    return history
 
 
 @router.patch("/{chat_id}", response_model=ChatRead)

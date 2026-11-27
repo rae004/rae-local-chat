@@ -94,5 +94,9 @@ See `package.json` scripts: `pnpm dev | down | migrate | migration | lint | type
   mirrored in-process by `services/allowrules.py` on `app.state`; `_resolve` in the agent
   sets status `auto | allowed | pending` up front; decision endpoint takes `always`;
   `GET/DELETE /tools/allow-rules`; rules are per tool, never per argument; shell is
-  allowable, the server confines it) · **F3** per-chat tool call history drawer.
+  allowable, the server confines it) · **F3** per-chat tool call history drawer ✅
+  (`GET /chats/{id}/tool-calls` joins the assistant rows' `tool_calls` records with their
+  tool rows in Python, newest first; `ToolHistoryDrawer` is a side panel in `ChatWindow`
+  toggled from the composer, reuses `ToolCallCard`, refetched when a stream ends; "asked"
+  = `approved !== null` because pre-F2 records carry no `status`).
 - App display name is **Rae Bot**; repo stays `rae-local-chat`.

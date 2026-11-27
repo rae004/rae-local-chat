@@ -45,3 +45,15 @@ async def test_delete_chat(client: AsyncClient) -> None:
     assert r.status_code == 404
     r = await client.get("/chats")
     assert r.json() == []
+
+
+async def test_tool_call_history_unknown_chat_404(client: AsyncClient) -> None:
+    r = await client.get(f"/chats/{uuid.uuid4()}/tool-calls")
+    assert r.status_code == 404
+
+
+async def test_tool_call_history_is_empty_without_tools(client: AsyncClient) -> None:
+    chat_id = (await client.post("/chats", json={})).json()["id"]
+    r = await client.get(f"/chats/{chat_id}/tool-calls")
+    assert r.status_code == 200
+    assert r.json() == []

@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+
 import type { StreamOptions } from '../api/client'
 import { useModels, useSelectedModel } from '../hooks/useModels'
 import { useTools, useToolsEnabled } from '../hooks/useTools'
@@ -10,10 +12,12 @@ interface Props {
   onSubmit: (content: string, options: StreamOptions) => void | Promise<unknown>
   disabled?: boolean
   onStop?: () => void
+  /** Extra controls at the right end of the top row (e.g. the history toggle). */
+  extras?: ReactNode
 }
 
 /** Model selector + tools toggle + prompt box (+ Stop while streaming). Shared by both routes. */
-export function Composer({ onSubmit, disabled = false, onStop }: Props) {
+export function Composer({ onSubmit, disabled = false, onStop, extras }: Props) {
   const [model, setModel] = useSelectedModel()
   const [toolsOn, setToolsOn] = useToolsEnabled()
   const models = useModels()
@@ -30,11 +34,14 @@ export function Composer({ onSubmit, disabled = false, onStop }: Props) {
       <div className="flex items-center gap-3 px-4 pt-3">
         <ModelSelector value={model} onChange={setModel} />
         <ToolsToggle checked={toolsOn} onChange={setToolsOn} unsupported={!supportsTools} />
-        {onStop ? (
-          <button type="button" className="btn btn-outline btn-sm ml-auto" onClick={onStop}>
-            Stop
-          </button>
-        ) : null}
+        <div className="ml-auto flex items-center gap-2">
+          {onStop ? (
+            <button type="button" className="btn btn-outline btn-sm" onClick={onStop}>
+              Stop
+            </button>
+          ) : null}
+          {extras}
+        </div>
       </div>
       <PromptBox
         onSubmit={(c) => onSubmit(c, { model, tools, servers })}
