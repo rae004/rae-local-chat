@@ -20,6 +20,10 @@ RUN uv sync --frozen --no-dev --package rae-mcp-shell
 
 # Unprivileged; the workspace is mounted read-only at /workspace by compose.
 RUN useradd --system --uid 10001 --home /tmp shell
+# The mount is owned by the host user, not uid 10001, so git refuses to read it
+# ("dubious ownership") unless the path is marked safe. System-level because the
+# rootfs is read-only at runtime and the shell user has no writable home.
+RUN git config --system --add safe.directory /workspace
 USER shell
 ENV WORKSPACE=/workspace HOST=0.0.0.0 PORT=8000
 EXPOSE 8000
