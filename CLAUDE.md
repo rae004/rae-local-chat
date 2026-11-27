@@ -55,9 +55,12 @@ is dev.
 - Branch per milestone (`milestone-a-scaffold`), small commits, PR to `main`, human reviews
   every diff. CI (ruff, mypy, pytest, oxlint, tsc, vitest) must be green.
 - **Squash-merge with a Conventional Commits PR title** (`feat:`, `fix:`, `chore:`, …).
-  release-please reads the squash commit's subject to cut releases and write CHANGELOG.md;
-  a non-conforming title silently skips the release. CI lints the title. One version for the
-  whole app: release-please bumps root + `api/` + `db/` pyprojects and both package.jsons.
+  The shared release workflow in `rae004/.github` reads the squash commit's subject and tags
+  that commit directly: `feat` → minor, `fix`/`perf` → patch, anything else → no release
+  (breaking changes bump the minor while on 0.x). No release PR. A required check rejects
+  non-conforming titles. One version for the whole app, held in git tags only: every
+  pyproject.toml and package.json carries a fixed `0.0.0` placeholder, and release notes are
+  on the GitHub Releases page, not in CHANGELOG.md.
 - **Never stack PRs.** Every PR targets `main`; the next milestone branch is cut only after
   the previous PR is merged. Delete the branch after merge. (A stacked PR once merged into
   its feature branch instead of `main`.)

@@ -1,6 +1,7 @@
 {
   "required_status_checks": [
     "python",
-    "node"
+    "node",
+    "title / Conventional title"
   ]
 }
