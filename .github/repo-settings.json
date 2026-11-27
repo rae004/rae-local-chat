@@ -3,5 +3,32 @@
     "python",
     "node",
     "title / Conventional title"
+  ],
+  "labels": [
+    {
+      "name": "dependencies",
+      "color": "0366d6",
+      "description": "Dependency update"
+    },
+    {
+      "name": "docker",
+      "color": "0db7ed",
+      "description": "Docker images"
+    },
+    {
+      "name": "github-actions",
+      "color": "bfd4f2",
+      "description": "Workflows and GitHub Actions"
+    },
+    {
+      "name": "javascript",
+      "color": "f1e05a",
+      "description": "JavaScript code or dependencies"
+    },
+    {
+      "name": "python",
+      "color": "2b67c6",
+      "description": "Python code or dependencies"
+    }
   ]
 }
