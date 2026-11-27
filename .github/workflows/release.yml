@@ -18,4 +18,4 @@ jobs:
   release:
     permissions:
       contents: write
-    uses: rae004/.github/.github/workflows/release.yml@ed86ea9408fc37be4796ace90d06ff29a6453e89 # main
+    uses: rae004/.github/.github/workflows/release.yml@57800fdc8271531a03eb1cf7f7a4b41ca841a896 # v0.2.0
