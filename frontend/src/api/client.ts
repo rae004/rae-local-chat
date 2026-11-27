@@ -1,4 +1,4 @@
-import type { AllowRule, Chat, Message, ModelInfo, ToolsInfo } from './types'
+import type { AllowRule, Chat, Message, ModelInfo, ToolCallHistory, ToolsInfo } from './types'
 
 export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -39,6 +39,7 @@ export const api = {
     if (!res.ok) throw new ApiError(res.status, await res.text())
   },
   listMessages: (chatId: string) => request<Message[]>(`/chats/${chatId}/messages`),
+  listToolCalls: (chatId: string) => request<ToolCallHistory[]>(`/chats/${chatId}/tool-calls`),
   listModels: () => request<ModelInfo[]>('/models'),
   listTools: () => request<ToolsInfo>('/tools'),
   /** Approve or deny a tool call the stream is waiting on; `always` also records an allow rule. */

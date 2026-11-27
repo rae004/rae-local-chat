@@ -7,6 +7,7 @@ import { parseSSE } from '../api/sse'
 import type { Message, ToolCall, ToolDecision, ToolResult } from '../api/types'
 import { chatsKey } from './useChats'
 import { messagesKey } from './useMessages'
+import { toolCallsKey } from './useToolCallHistory'
 
 export interface ChatStream {
   send: (content: string, options?: Partial<StreamOptions>) => Promise<void>
@@ -117,6 +118,7 @@ export function useChatStream(chatId: string): ChatStream {
           // refetch to pick that up and refresh sidebar ordering.
           void qc.invalidateQueries({ queryKey: messagesKey(chatId) })
           void qc.invalidateQueries({ queryKey: chatsKey })
+          void qc.invalidateQueries({ queryKey: toolCallsKey(chatId) })
         }
       }
     },

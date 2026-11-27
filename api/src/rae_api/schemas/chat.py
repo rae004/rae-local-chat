@@ -78,6 +78,25 @@ class ToolResultRead(BaseModel):
     is_error: bool
 
 
+class ToolCallHistoryRead(BaseModel):
+    """One row of `GET /chats/{id}/tool-calls`: a call joined with its result, newest first."""
+
+    id: str
+    name: str
+    server: str
+    arguments: dict[str, Any]
+    read_only: bool
+    status: ToolCallStatus = "auto"
+    # the assistant row that requested the call, and when
+    message_id: uuid.UUID
+    created_at: datetime
+    # None = ran without asking; True/False = the user's decision
+    approved: bool | None = None
+    # None = no result row (the stream died before the tool answered)
+    result: str | None = None
+    is_error: bool | None = None
+
+
 class MessageRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

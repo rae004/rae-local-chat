@@ -59,6 +59,9 @@ per-server status; the **Tools** toggle in the composer turns tool use off per m
 The gear next to it switches whole servers on or off: an off server's tools are left out of
 the prompt entirely (the count on the toggle is what the model will actually see). Choices
 are per browser; GitHub starts off because its 46 tools swamp the catalogue for small models.
+The **Tools (N)** button at the right of the composer opens a drawer listing every tool call
+in the chat, newest first, with a summary line and **All / Asked / Failed** filters; it reads
+`GET /chats/{id}/tool-calls`, which joins each call with its result and decision.
 Only models whose Ollama `capabilities` include `tools` can use them. `SYSTEM_PROMPT` sets
 the opening system message; tool-use guidance is appended automatically when tools are on.
 

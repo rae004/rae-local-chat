@@ -35,6 +35,19 @@ export interface ToolResult {
   is_error: boolean
 }
 
+/** One row of `GET /chats/{id}/tool-calls`: a call joined with its result, newest first. */
+export interface ToolCallHistory extends ToolCall {
+  status: ToolCallStatus
+  /** the assistant row that requested the call, and when */
+  message_id: string
+  created_at: string
+  /** null = ran without asking; true/false = the user's decision */
+  approved: boolean | null
+  /** null = no result row (the stream died before the tool answered) */
+  result: string | null
+  is_error: boolean | null
+}
+
 export interface Message {
   id: string
   chat_id: string
