@@ -1,5 +1,9 @@
 # Changelog
 
+Releases after 0.5.0 are tagged directly on the merged commit and documented on the
+[GitHub Releases page](https://github.com/rae004/rae-local-chat/releases); this file is
+no longer updated.
+
 ## [0.5.0](https://github.com/rae004/rae-local-chat/compare/v0.4.3...v0.5.0) (2026-11-26)
 
 
