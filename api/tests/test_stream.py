@@ -359,6 +359,70 @@ async def test_decision_endpoint(client: AsyncClient, approvals: Approvals) -> N
     assert r.status_code == 404
 
 
+async def test_decision_always_adds_a_rule_and_later_calls_skip_the_ask(
+    client: AsyncClient, registry: FakeRegistry, approvals: Approvals
+) -> None:
+    write = FakeOllama.call("fs__write", {"path": "x", "content": "y"})
+    fake = FakeOllama([write], [write], ["ok"])  # two writes in one reply, then prose
+    app.dependency_overrides[get_ollama] = lambda: fake
+    try:
+        chat_id = await _new_chat(client)
+
+        async def click_always() -> None:
+            for _ in range(200):
+                if approvals._pending:  # noqa: SLF001 — test peeks at the registry
+                    break
+                await asyncio.sleep(0.01)
+            call_id = next(iter(approvals._pending))  # noqa: SLF001
+            r = await client.post(
+                f"/chats/{chat_id}/tool-calls/{call_id}/decision",
+                json={"approved": True, "always": True},
+            )
+            assert r.status_code == 204
+
+        clicker = asyncio.create_task(click_always())
+        r = await client.post(f"/chats/{chat_id}/stream", json={"content": "write twice"})
+        await clicker
+        calls = [d for e, d in parse_sse(r.text) if e == "tool_call"]
+        # First call asked; the second ran under the rule added mid-reply.
+        assert [c["status"] for c in calls] == ["pending", "allowed"]
+        assert len(registry.calls) == 2
+        rows = (await client.get(f"/chats/{chat_id}/messages")).json()
+        assert [m["tool_approved"] for m in rows if m["role"] == "tool"] == [True, None]
+
+        r = await client.get("/tools/allow-rules")
+        assert r.json() == [{"tool": "fs__write"}]
+
+        # Rule in place: a fresh reply doesn't ask at all.
+        app.dependency_overrides[get_ollama] = lambda: FakeOllama([write], ["ok"])
+        r = await client.post(f"/chats/{chat_id}/stream", json={"content": "again"})
+        kinds = [e for e, _ in parse_sse(r.text)]
+        assert "tool_decision" not in kinds and "tool_call" in kinds
+
+        # Revoke: back to asking (deny it this time, via the plain endpoint).
+        revoked = await client.delete("/tools/allow-rules/fs__write")
+        assert revoked.status_code == 204
+        again = await client.delete("/tools/allow-rules/fs__write")
+        assert again.status_code == 404
+        app.dependency_overrides[get_ollama] = lambda: FakeOllama([write], ["ok"])
+        denier = asyncio.create_task(_decide_when_pending(approvals, False))
+        r = await client.post(f"/chats/{chat_id}/stream", json={"content": "once more"})
+        await denier
+        assert "tool_decision" in [e for e, _ in parse_sse(r.text)]
+    finally:
+        app.dependency_overrides.pop(get_ollama, None)
+
+
+async def test_deny_with_always_adds_no_rule(client: AsyncClient, approvals: Approvals) -> None:
+    chat_id = await _new_chat(client)
+    approvals.register("abc123", "fs__write")
+    r = await client.post(
+        f"/chats/{chat_id}/tool-calls/abc123/decision", json={"approved": False, "always": True}
+    )
+    assert r.status_code == 204
+    assert (await client.get("/tools/allow-rules")).json() == []
+
+
 async def test_list_tools(client: AsyncClient, registry: FakeRegistry) -> None:
     r = await client.get("/tools")
     assert r.status_code == 200

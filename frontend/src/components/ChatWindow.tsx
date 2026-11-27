@@ -42,7 +42,7 @@ export function ChatWindow({ chatId }: Props) {
           isStreaming={stream.isStreaming}
           toolResults={stream.toolResults}
           pendingCalls={stream.pendingCalls}
-          onDecide={(id, ok) => void stream.decide(id, ok)}
+          onDecide={(id, ok, always) => void stream.decide(id, ok, always)}
         />
       )}
       {stream.error ? (

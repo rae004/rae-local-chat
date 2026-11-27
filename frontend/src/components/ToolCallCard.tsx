@@ -11,7 +11,8 @@ interface Props {
   running?: boolean
   /** Waiting for the user right now; shows Approve/Deny. */
   pending?: boolean
-  onDecide?: (approved: boolean) => void
+  /** `always` = approve and never ask for this tool again. */
+  onDecide?: (approved: boolean, always?: boolean) => void
 }
 
 /** One tool invocation: who/what, arguments, Approve/Deny while pending, and the result. */
@@ -40,7 +41,7 @@ export function ToolCallCard({
           <span className="opacity-60">{server} · </span>
           {tool}
         </span>
-        <StatusBadge status={status} readOnly={call.read_only} />
+        <StatusBadge status={status} readOnly={call.read_only} allowed={call.status === 'allowed'} />
       </summary>
       <div className="collapse-content space-y-2">
         <Block label="arguments">{JSON.stringify(call.arguments, null, 2)}</Block>
@@ -56,6 +57,14 @@ export function ToolCallCard({
             </button>
             <button type="button" className="btn btn-error btn-xs" onClick={() => onDecide?.(false)}>
               Deny
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs"
+              title="Run it now and never ask for this tool again (revoke under Tools ⚙)"
+              onClick={() => onDecide?.(true, true)}
+            >
+              Always allow
             </button>
           </div>
         ) : null}
@@ -95,7 +104,15 @@ function cardStatus({
   return running ? 'running' : 'stale'
 }
 
-function StatusBadge({ status, readOnly }: { status: CardStatus; readOnly: boolean }) {
+function StatusBadge({
+  status,
+  readOnly,
+  allowed,
+}: {
+  status: CardStatus
+  readOnly: boolean
+  allowed: boolean
+}) {
   switch (status) {
     case 'running':
       return <span className="loading loading-spinner loading-xs" aria-label="running" />
@@ -109,8 +126,8 @@ function StatusBadge({ status, readOnly }: { status: CardStatus; readOnly: boole
       return <span className="badge badge-ghost badge-xs">no result</span>
     case 'done':
       return (
-        <span className={`badge badge-xs ${readOnly ? 'badge-ghost' : 'badge-info'}`}>
-          {readOnly ? 'auto · read-only' : 'approved'}
+        <span className={`badge badge-xs ${readOnly || allowed ? 'badge-ghost' : 'badge-info'}`}>
+          {readOnly ? 'auto · read-only' : allowed ? 'auto · allowed' : 'approved'}
         </span>
       )
   }

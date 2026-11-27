@@ -1,13 +1,14 @@
 """The tool-calling loop: Ollama ⇄ MCP until the model answers in prose.
 
 Pure: no DB, no SSE. Yields events the stream router persists and forwards.
-Read-only tools run at once; anything else parks on `Approvals` until the user
-decides (or the timeout counts as a denial).
+Read-only tools run at once, as do tools the user has put on the allow list;
+anything else parks on `Approvals` until the user decides (or the timeout counts
+as a denial).
 """
 
 import uuid
-from collections.abc import AsyncIterator, Collection
-from dataclasses import dataclass, field, replace
+from collections.abc import AsyncIterator, Collection, Container
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from rae_api.services.approvals import Approvals
@@ -15,7 +16,7 @@ from rae_api.services.mcp import McpRegistry, ToolOutcome
 from rae_api.services.ollama import OllamaClient, ToolCallRequest
 from rae_api.services.toolcalls import extract_tool_calls, hold_start, unwrap_tool_response
 
-ToolCallStatus = Literal["auto", "pending"]
+ToolCallStatus = Literal["auto", "pending", "allowed"]
 DecidedBy = Literal["user", "timeout"]
 
 
@@ -85,6 +86,7 @@ async def run_agent(
     tools_enabled: bool,
     servers: Collection[str] | None = None,
     approvals: Approvals | None = None,
+    allowed: Container[str] | None = None,
     approval_timeout: float = 300.0,
     max_rounds: int = 10,
     system_prompt: str | None = None,
@@ -132,7 +134,7 @@ async def run_agent(
             yield Finished(text)
             return
 
-        calls = [_resolve(registry, r) for r in requests]
+        calls = [_resolve(registry, r, approvals, allowed) for r in requests]
         yield AssistantTurn(content=text, tool_calls=calls)
         messages.append(
             {
@@ -144,13 +146,12 @@ async def run_agent(
             }
         )
         for call in calls:
-            if call.read_only or registry.get(call.name) is None or approvals is None:
+            if call.status != "pending" or approvals is None:
                 yield call
                 outcome = await _execute(registry, call)
                 yield ToolResult(call, outcome.content, outcome.is_error)
             else:
-                approvals.register(call.id)
-                call = replace(call, status="pending")
+                approvals.register(call.id, call.name)
                 yield call
                 decision = await approvals.wait(call.id, approval_timeout)
                 approved = decision is True
@@ -182,21 +183,33 @@ def _with_system(
     return [{"role": "system", "content": "\n\n".join(parts)}, *history]
 
 
-def _resolve(registry: McpRegistry, req: ToolCallRequest) -> ToolCall:
+def _resolve(
+    registry: McpRegistry,
+    req: ToolCallRequest,
+    approvals: Approvals | None,
+    allowed: Container[str] | None,
+) -> ToolCall:
+    """Name the call and decide how it will run: auto (read-only or unknown),
+    allowed (user's standing rule), or pending (needs a click)."""
     spec = registry.get(req.name)
+    read_only = bool(spec and spec.read_only)
+    status: ToolCallStatus = "auto"
+    if spec is not None and not read_only and approvals is not None:
+        status = "allowed" if allowed is not None and req.name in allowed else "pending"
     return ToolCall(
         id=uuid.uuid4().hex[:12],
         name=req.name,
         server=spec.server if spec else "",
         arguments=req.arguments,
-        read_only=bool(spec and spec.read_only),
+        read_only=read_only,
+        status=status,
     )
 
 
 async def _execute(registry: McpRegistry, call: ToolCall) -> ToolOutcome:
     if registry.get(call.name) is None:
         return ToolOutcome(f"Unknown tool: {call.name}", is_error=True)
-    if not call.read_only:
+    if not call.read_only and call.status != "allowed":
         # Only reachable with no Approvals registry (tests): writes can't be asked about.
         return ToolOutcome(
             f"{call.name} modifies state and needs user approval, which isn't available here.",

@@ -161,6 +161,7 @@ describe('useChatStream', () => {
     expect(fetchSpy.mock.calls[1]![0]).toContain('/chats/c1/tool-calls/w1/decision')
     expect(JSON.parse(String((fetchSpy.mock.calls[1]![1] as RequestInit).body))).toEqual({
       approved: true,
+      always: false,
     })
 
     await act(async () => {

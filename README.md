@@ -51,7 +51,10 @@ The model can call tools from MCP servers that run as compose services:
 Read-only tools run automatically and show up as collapsible cards in the chat. Tools that
 modify state pause the reply and show **Approve** / **Deny** on their card; no click within
 5 minutes (`TOOL_APPROVAL_TIMEOUT`) counts as deny, and the model is told either way so it
-can carry on. Decisions are stored with the chat. `GET /tools` lists the catalogue and
+can carry on. **Always allow** on a card approves and records a standing rule for that tool
+(`tool_allow_rules` table), so it runs without asking from then on, including later in the
+same reply; such calls are badged `auto · allowed`. Rules are listed and revoked under the
+Tools gear, or via `GET`/`DELETE /tools/allow-rules`. Decisions are stored with the chat. `GET /tools` lists the catalogue and
 per-server status; the **Tools** toggle in the composer turns tool use off per message.
 The gear next to it switches whole servers on or off: an off server's tools are left out of
 the prompt entirely (the count on the toggle is what the model will actually see). Choices

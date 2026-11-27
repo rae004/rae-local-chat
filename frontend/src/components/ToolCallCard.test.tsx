@@ -41,6 +41,23 @@ describe('ToolCallCard', () => {
     expect(onDecide).toHaveBeenCalledWith(false)
   })
 
+  it('Always allow approves and asks for a standing rule', () => {
+    const onDecide = vi.fn()
+    render(<ToolCallCard call={{ ...call, read_only: false }} pending onDecide={onDecide} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Always allow' }))
+    expect(onDecide).toHaveBeenCalledWith(true, true)
+  })
+
+  it('shows an allowed write as auto · allowed', () => {
+    render(
+      <ToolCallCard
+        call={{ ...call, read_only: false, status: 'allowed' }}
+        result={{ id: 'c1', name: call.name, content: 'ok', is_error: false }}
+      />,
+    )
+    expect(screen.getByText('auto · allowed')).toBeInTheDocument()
+  })
+
   it('renders a denied call from its persisted decision', () => {
     render(
       <ToolCallCard

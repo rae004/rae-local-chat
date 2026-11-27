@@ -90,6 +90,9 @@ See `package.json` scripts: `pnpm dev | down | migrate | migration | lint | type
 - **F** tool controls, three PRs: **F1** per-server switches ✅ (gear by the Tools toggle;
   `lib/toolServers.ts` is a `useSyncExternalStore` store of the *disabled* set in
   localStorage, GitHub off by default; `MessageCreate.servers` narrows what the registry
-  offers, `None` = all) · **F2** "always allow" per-tool rules, server-side table, shell
-  allowable too · **F3** per-chat tool call history drawer.
+  offers, `None` = all) · **F2** "always allow" per-tool rules ✅ (`tool_allow_rules` table
+  mirrored in-process by `services/allowrules.py` on `app.state`; `_resolve` in the agent
+  sets status `auto | allowed | pending` up front; decision endpoint takes `always`;
+  `GET/DELETE /tools/allow-rules`; rules are per tool, never per argument; shell is
+  allowable, the server confines it) · **F3** per-chat tool call history drawer.
 - App display name is **Rae Bot**; repo stays `rae-local-chat`.

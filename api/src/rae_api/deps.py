@@ -4,6 +4,7 @@ import httpx
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from rae_api.services.allowrules import AllowRules
 from rae_api.services.approvals import Approvals
 from rae_api.services.mcp import McpRegistry
 from rae_api.services.ollama import OllamaClient
@@ -37,3 +38,11 @@ def get_approvals(request: Request) -> Approvals:
 
 
 ApprovalsDep = Annotated[Approvals, Depends(get_approvals)]
+
+
+def get_allow_rules(request: Request) -> AllowRules:
+    rules: AllowRules = request.app.state.allow_rules
+    return rules
+
+
+AllowRulesDep = Annotated[AllowRules, Depends(get_allow_rules)]

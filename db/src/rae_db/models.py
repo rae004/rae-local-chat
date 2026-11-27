@@ -55,3 +55,12 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     chat: Mapped[Chat] = relationship(back_populates="messages")
+
+
+class ToolAllowRule(Base):
+    """A tool the user chose to run without asking ("Always allow"). Keyed by `<server>__<tool>`."""
+
+    __tablename__ = "tool_allow_rules"
+
+    tool: Mapped[str] = mapped_column(String(300), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -13,7 +13,7 @@ interface Props {
   toolResults?: Record<string, ToolResult>
   /** Calls waiting for Approve/Deny right now. */
   pendingCalls?: Record<string, ToolCall>
-  onDecide?: (callId: string, approved: boolean) => void
+  onDecide?: (callId: string, approved: boolean, always?: boolean) => void
 }
 
 export function MessageList({
@@ -74,7 +74,7 @@ export function MessageList({
                     approved={decisions.get(c.id) ?? null}
                     running={isStreaming}
                     pending={c.id in pendingCalls}
-                    onDecide={onDecide ? (ok) => onDecide(c.id, ok) : undefined}
+                    onDecide={onDecide ? (ok, always) => onDecide(c.id, ok, always) : undefined}
                   />
                 ))}
               </div>

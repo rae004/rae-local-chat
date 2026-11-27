@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api, type StreamOptions } from '../api/client'
+import { allowRulesKey } from './useTools'
 import { parseSSE } from '../api/sse'
 import type { Message, ToolCall, ToolDecision, ToolResult } from '../api/types'
 import { chatsKey } from './useChats'
@@ -18,7 +19,7 @@ export interface ChatStream {
   /** Call ids currently waiting for the user's Approve/Deny. */
   pendingCalls: Record<string, ToolCall>
   /** Approve or deny a pending call. */
-  decide: (callId: string, approved: boolean) => Promise<void>
+  decide: (callId: string, approved: boolean, always?: boolean) => Promise<void>
 }
 
 const DEFAULTS: StreamOptions = { model: null, tools: true }
@@ -123,14 +124,15 @@ export function useChatStream(chatId: string): ChatStream {
   )
 
   const decide = useCallback(
-    async (callId: string, approved: boolean) => {
+    async (callId: string, approved: boolean, always = false) => {
       try {
-        await api.decideToolCall(chatId, callId, approved)
+        await api.decideToolCall(chatId, callId, approved, always)
+        if (always) void qc.invalidateQueries({ queryKey: allowRulesKey })
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
       }
     },
-    [chatId],
+    [chatId, qc],
   )
 
   return { send, stop, partial, isStreaming, error, toolResults, pendingCalls, decide }
